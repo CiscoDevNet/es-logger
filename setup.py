@@ -71,6 +71,7 @@ setup(
         ],
         'es_logger.plugins.event_generator': [
             'commit = es_logger.event_generator:CommitEvent',
+            'ansible_recap_v2 = es_logger.ansible:AnsibleRecapEvent',
         ],
     },
 
