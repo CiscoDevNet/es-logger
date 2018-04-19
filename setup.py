@@ -72,7 +72,7 @@ setup(
         ],
     },
 
-    data_files = [("", ["LICENSE", "VERSION"])],
+    data_files=[("", ["LICENSE", "VERSION"])],
 
     project_urls={
         'Bug Reports': 'https://github.com/CiscoDevNet/es-logger/issues',
