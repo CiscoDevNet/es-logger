@@ -1,0 +1,17 @@
+language: python
+os: linux
+dist: trusty
+sudo: false
+python:
+- '3.6'
+install:
+- pip install -r test-requirements.txt
+script:
+- tox
+deploy:
+  provider: pypi
+  user: j3p0uk
+  password:
+    secure: m5se7i93rRBlAHn/+QvWOi2BcONz7/rlmhpMKGEQtmb1Lp6xwxFHm5js5YAAs0j17yEhm7H30MhZpKBDFVstxyT8Ve2oTCIH6B79y5/LF1b85tSojjNZfPf2SALnYVILhNWEeTfmFdwqj1dkMmiwfciOOcxIHKExZpw/UMSkbLrTNC2MHzxAzj7nPfuV8Em7nZm+yElWQrxu6l5Mcrp+aO2sjgR0v13zjdDaMve5KJw8Smlt+zDYOYSnFDrzLnQ5f+DOG5EIfLKfOMNTjC1iTiFyXJXeYV5wljc56SGhsCFnDMf4qW40xaWDCDUjCkUm7yTtYX9oZEeccNrkXfoVyCBSk07BtSkdLAPFWAjwnCOMg7O5SuvwMNgq6ho3aVwvRwkhd1kZbIlNmfQxLb7tRMWNdQeu140UWIhC4s/MelW3SOHU71KHcxqPxTRFMezPgxLHUATe4plqFQqGrM+HSi+fz1nZBq7/EOHT7k25j7uheO2yTzVZhmYiqLvai/DqltoAYjaEDLoGXY7L4Ig/oK0cJb3UE3wOQVU7W9Ygyz6psJbLJiJ7eY4vLhvT1ZuwzFbnP6HwfeqRis6J/XJ5PqkvLWGTloU5zRxTs5ySCk8aUA2sY112v/FafEAWOijgqhEGjTuEGK9LGtpOLD3F503JPMFcWhgx9mwRQGH1cok=
+  on:
+    branch: master
