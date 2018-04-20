@@ -3,7 +3,7 @@
 
 __author__ = 'jonpsull'
 
-from .plugins import EventGenerator
+from ..interface import EventGenerator
 
 
 class CommitEvent(EventGenerator):

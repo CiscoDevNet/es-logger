@@ -1,4 +1,5 @@
-ES-Logger [![Build Status](https://travis-ci.org/CiscoDevNet/es-logger.svg?branch=master)](https://travis-ci.org/CiscoDevNet/es-logger)
+ES-Logger [![Build Status](https://travis-ci.org/CiscoDevNet/es-logger.svg?branch=master)](https://travis-ci.org/CiscoDevNet/es-logger) [![PyPi](https://img.shields.io/pypi/v/es-logger.svg)](https://pypi.org/project/es-logger/)
+
 =========
 
 The es-logger project intends to build a pluggable data processor that will take data from

@@ -9,10 +9,10 @@ import unittest.mock
 
 
 class TestAnsibleRecapEvent(object):
-    def test_event_generator_plugins(self):
-        eg = es_logger.ansible.AnsibleRecapEvent()
+    def test_ansible_recap_event(self):
+        eg = es_logger.plugins.ansible.AnsibleRecapEvent()
         fields = eg.get_fields()
-        nose.tools.ok_(fields == es_logger.plugins.EventGenerator.DEFAULT_FIELDS)
+        nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
         esl = unittest.mock.MagicMock()
         esl.console_log = '''
 + ansible-playbook command

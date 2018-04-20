@@ -9,10 +9,10 @@ import unittest.mock
 
 
 class TestCommitEvent(object):
-    def test_event_generator_plugins(self):
-        eg = es_logger.event_generator.CommitEvent()
+    def test_commit_event(self):
+        eg = es_logger.plugins.commit.CommitEvent()
         fields = eg.get_fields()
-        nose.tools.ok_(fields == es_logger.plugins.EventGenerator.DEFAULT_FIELDS)
+        nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
         esl = unittest.mock.MagicMock()
         esl.build_info = {
                 "changeSet": {

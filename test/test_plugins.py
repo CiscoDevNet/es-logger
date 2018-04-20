@@ -7,7 +7,7 @@ import es_logger
 import nose
 
 
-class DummyConsoleLogProcessor(es_logger.plugins.ConsoleLogProcessor):
+class DummyConsoleLogProcessor(es_logger.interface.ConsoleLogProcessor):
     def __init__(self):
         super().__init__()
 
@@ -15,7 +15,7 @@ class DummyConsoleLogProcessor(es_logger.plugins.ConsoleLogProcessor):
         return {'DummyConsoleLogProcessor': True}
 
 
-class DummyGatherBuildData(es_logger.plugins.GatherBuildData):
+class DummyGatherBuildData(es_logger.interface.GatherBuildData):
     def __init__(self):
         super().__init__()
 
@@ -23,7 +23,7 @@ class DummyGatherBuildData(es_logger.plugins.GatherBuildData):
         return {'DummyGatherBuildData': True}
 
 
-class DummyEventGenerator(es_logger.plugins.EventGenerator):
+class DummyEventGenerator(es_logger.interface.EventGenerator):
     def __init__(self):
         super().__init__()
 
@@ -44,5 +44,5 @@ class TestPlugins(object):
     def test_event_generator_plugins(self):
         eg = DummyEventGenerator()
         fields = eg.get_fields()
-        nose.tools.ok_(fields == es_logger.plugins.EventGenerator.DEFAULT_FIELDS)
+        nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
         eg.generate_events({'es_logger': True})
