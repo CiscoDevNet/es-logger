@@ -57,7 +57,6 @@ class EventGenerator(object):
             * Pushing events for individual test runs
             * Pushing per-host data from a job that affects multiple hosts
     """
-
     # The default Jenkins fields to add to the generated events
     DEFAULT_FIELDS = [
         'BUILD_NUMBER',

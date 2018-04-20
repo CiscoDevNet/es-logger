@@ -70,8 +70,9 @@ setup(
         'es_logger.plugins.gather_build_data': [
         ],
         'es_logger.plugins.event_generator': [
-            'commit = es_logger.event_generator:CommitEvent',
-            'ansible_recap_v2 = es_logger.ansible:AnsibleRecapEvent',
+            'commit = es_logger.plugins.commit:CommitEvent',
+            'ansible_recap_v2 = es_logger.plugins.ansible:AnsibleRecapEvent',
+            'junit = es_logger.plugins.junit:JUnitEvent',
         ],
     },
 

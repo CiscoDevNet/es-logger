@@ -127,7 +127,7 @@ class EsLogger(object):
         self.jenkins_url = self.get_jenkins_url()
         self.jenkins_user = self.get_jenkins_user()
         self.jenkins_password = self.get_jenkins_password()
-        if self.jenkins_user and self.jenkins_password:
+        if self.jenkins_url:
             self.server = jenkins.Jenkins(self.jenkins_url,
                                           username=self.jenkins_user,
                                           password=self.jenkins_password)

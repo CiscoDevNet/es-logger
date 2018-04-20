@@ -5,7 +5,7 @@ __author__ = 'jonpsull'
 
 import itertools
 import logging
-from .plugins import EventGenerator
+from ..interface import EventGenerator
 import re
 
 LOGGER = logging.getLogger(__name__)

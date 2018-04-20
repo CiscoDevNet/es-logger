@@ -49,7 +49,8 @@ class TestEsLogger(object):
         with unittest.mock.patch('es_logger.Request'), \
                 unittest.mock.patch('jenkins.Request'), \
                 unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read.side_effect = HTTPError('url', 'code', 'msg', 'hdrs', 'fp')
+            mock_urlopen().read.side_effect = HTTPError('url', 'code', 'msg', 'hdrs',
+                                                        unittest.mock.MagicMock())
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             nose.tools.assert_raises(JenkinsException,
