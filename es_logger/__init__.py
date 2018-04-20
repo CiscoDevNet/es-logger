@@ -13,30 +13,29 @@ import requests
 from stevedore import driver, ExtensionManager
 
 # Monkey patch the jenkins import
-from six.moves.urllib.error import HTTPError
-from six.moves.urllib.request import Request
 BUILD_ENV_VARS = '%(folder_url)sjob/%(short_name)s/%(number)d/injectedEnvVars/api/json' + \
     '?depth=%(depth)s'
 
 
 def get_build_env_vars(self, name, number, depth=0):
-    '''Get build information dictionary.
+    '''Get build environment variables.
 
     :param name: Job name, ``str``
     :param name: Build number, ``int``
+    :param depth: JSON depth, ``int``
     :returns: dictionary of build env vars, ``dict``
     '''
     folder_url, short_name = self._get_job_folder(name)
     try:
-        response = self.jenkins_open(Request(
-                self._build_url(BUILD_ENV_VARS, locals())
+        response = self.jenkins_open(requests.Request(
+                'GET', self._build_url(BUILD_ENV_VARS, locals())
             ))
         if response:
             return json.loads(response)
         else:
             raise jenkins.JenkinsException('job[%s] number[%d] does not exist'
                                            % (name, number))
-    except HTTPError:
+    except requests.exceptions.HTTPError:
         raise jenkins.JenkinsException('job[%s] number[%d] does not exist'
                                        % (name, number))
     except ValueError:
@@ -54,8 +53,7 @@ jenkins.Jenkins.get_build_env_vars = get_build_env_vars
 
 
 # Get Test results
-BUILD_TEST_REPORT = \
-    '%(folder_url)sjob/%(short_name)s/%(number)d/testReport/api/json' + \
+BUILD_TEST_REPORT = '%(folder_url)sjob/%(short_name)s/%(number)d/testReport/api/json' + \
     '?depth=%(depth)s'
 
 
@@ -68,15 +66,15 @@ def get_build_test_report(self, name, number, depth=0):
     '''
     folder_url, short_name = self._get_job_folder(name)
     try:
-        response = self.jenkins_open(Request(
-                self._build_url(BUILD_TEST_REPORT, locals())
+        response = self.jenkins_open(requests.Request(
+                'GET', self._build_url(BUILD_TEST_REPORT, locals())
             ))
         if response:
             return json.loads(response)
         else:
             raise jenkins.JenkinsException('job[%s] number[%d] does not exist'
                                            % (name, number))
-    except HTTPError:
+    except requests.exceptions.HTTPError:
         raise jenkins.JenkinsException('job[%s] number[%d] does not exist'
                                        % (name, number))
     except ValueError:

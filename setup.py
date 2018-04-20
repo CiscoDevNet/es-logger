@@ -47,7 +47,7 @@ setup(
     keywords='jenkins development elasticsearch logstash build',
 
     install_requires=[
-        'python-jenkins',
+        'python-jenkins>=1.0.0',
         'requests',
         'stevedore',
     ],

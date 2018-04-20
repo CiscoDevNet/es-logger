@@ -10,7 +10,7 @@ import nose
 import os
 from parameterized import parameterized
 import pkg_resources
-from six.moves.urllib.error import HTTPError
+import requests
 from stevedore import ExtensionManager
 import unittest.mock
 
@@ -20,25 +20,25 @@ class TestEsLogger(object):
     def setup(self):
         self.esl = es_logger.EsLogger(1000)
         self.urls = {
-            'get_build_env_vars': 'jenkins_url/job/job_name/1/injectedEnvVars/api/json?depth=0',
-            'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=0'}
+            'get_build_env_vars': 'jenkins_url/job/job_name/1/injectedEnvVars/api/json?depth=1',
+            'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=1'}
 
     @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
     def test_monkey_patch(self, param):
-        with unittest.mock.patch('es_logger.Request') as mock_request, \
-                unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read().decode.return_value = '{}'
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             self.esl.server.crumb = False
+            mock_open.return_value = '{}'
             func = getattr(self.esl.server, param)
-            func('job_name', 1)
-            print("Comparison calls: {}".format(mock_request.mock_calls))
-            mock_request.assert_any_call(self.urls[param])
+            func('job_name', 1, 1)
+            request = mock_open.call_args[0][0]
+            print("method: {} url: {} headers: {}".format(request.method, request.url,
+                                                          request.headers))
+            nose.tools.ok_(request.url == self.urls[param])
 
     @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
     def test_monkey_patch_missing(self, param):
-        with unittest.mock.patch('es_logger.Request'), \
-                unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read().decode.return_value = None
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
+            mock_open.return_value = None
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             nose.tools.assert_raises(JenkinsException,
@@ -46,11 +46,9 @@ class TestEsLogger(object):
 
     @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
     def test_monkey_patch_http(self, param):
-        with unittest.mock.patch('es_logger.Request'), \
-                unittest.mock.patch('jenkins.Request'), \
-                unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read.side_effect = HTTPError('url', 'code', 'msg', 'hdrs',
-                                                        unittest.mock.MagicMock())
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
+            mock_open.side_effect = requests.exceptions.HTTPError('url', 'code', 'msg', 'hdrs',
+                                                                  unittest.mock.MagicMock())
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             nose.tools.assert_raises(JenkinsException,
@@ -58,10 +56,8 @@ class TestEsLogger(object):
 
     @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
     def test_monkey_patch_value(self, param):
-        with unittest.mock.patch('es_logger.Request'), \
-                unittest.mock.patch('jenkins.Request'), \
-                unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read.side_effect = ValueError()
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
+            mock_open.side_effect = ValueError()
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             nose.tools.assert_raises(JenkinsException,
@@ -69,10 +65,8 @@ class TestEsLogger(object):
 
     @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
     def test_monkey_patch_not_found(self, param):
-        with unittest.mock.patch('es_logger.Request'), \
-                unittest.mock.patch('jenkins.Request'), \
-                unittest.mock.patch('jenkins.urlopen') as mock_urlopen:
-            mock_urlopen().read.side_effect = NotFoundException()
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
+            mock_open.side_effect = NotFoundException()
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             ret = 'Return not set'
