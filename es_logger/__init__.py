@@ -12,7 +12,28 @@ import os
 import requests
 from stevedore import driver, ExtensionManager
 
+
 # Monkey patch the jenkins import
+def _response_handler(self, response):  # pragma: no cover
+    '''Handle response objects'''
+    # raise exceptions if occurred
+    response.raise_for_status()
+    headers = response.headers
+    if (headers.get('content-length') is None and
+            headers.get('transfer-encoding') is None and
+            len(response.content) <= 0):
+        # response body should only exist if one of these is provided
+        raise jenkins.EmptyResponseException(
+            "Error communicating with server[%s]: "
+            "empty response" % self.server)
+    # Response objects will automatically return unicode encoded
+    # when accessing .text property
+    return response
+
+
+jenkins.Jenkins._response_handler = _response_handler
+
+
 BUILD_ENV_VARS = '%(folder_url)sjob/%(short_name)s/%(number)d/injectedEnvVars/api/json' + \
     '?depth=%(depth)s'
 
