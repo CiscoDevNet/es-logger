@@ -18,7 +18,14 @@ import unittest.mock
 class TestEsLogger(object):
 
     def setup(self):
-        self.esl = es_logger.EsLogger(1000)
+        dep = pkg_resources.EntryPoint.parse(
+            'dummy = test.test_plugins:DummyEventTarget')
+        d = pkg_resources.Distribution()
+        d._ep_map = {'es_logger.plugins.event_target': {'dummy': dep}}
+        pkg_resources.working_set.add(d, 'dummy')
+        ExtensionManager.ENTRY_POINT_CACHE = {}
+
+        self.esl = es_logger.EsLogger(1000, ['dummy'])
         self.urls = {
             'get_build_env_vars': 'jenkins_url/job/job_name/1/injectedEnvVars/api/json?depth=1',
             'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=1'}
@@ -74,8 +81,7 @@ class TestEsLogger(object):
             nose.tools.ok_(ret is None,
                            "Return not None: {}".format(ret))
 
-    @parameterized.expand(['jenkins_url', 'jenkins_user', 'jenkins_password', 'es_job_name',
-                           'logstash_server', 'ls_user', 'ls_password'])
+    @parameterized.expand(['jenkins_url', 'jenkins_user', 'jenkins_password', 'es_job_name'])
     def test_get(self, param):
         nose.tools.ok_(getattr(self.esl, param) is None,
                        "{} not None: {}".format(param, getattr(self.esl, param)))
@@ -221,30 +227,17 @@ class TestEsLogger(object):
         nose.tools.ok_(self.esl.es_info['test_report'] is not None,
                        "Test report is None: {}".format(self.esl.es_info['test_report']))
 
-    @unittest.mock.patch('requests.Session')
-    def test_get_session(self, session):
-        self.esl.get_session()
-        print(session.mock_calls)
-        nose.tools.ok_(self.esl.ls_session is not None,
-                       "Session is None: {}".format(self.esl.ls_session))
-
-    @unittest.mock.patch('requests.Session')
-    def test_post_good(self, session):
-        session().post().ok = True
-        res = self.esl.post({"event": "event"})
-        nose.tools.ok_(res == 0,
-                       "res not 0: {}".format(res))
-
-    @unittest.mock.patch('requests.Session')
-    def test_post_bad(self, session):
-        session().post().ok = False
-        res = self.esl.post({"event": "event"})
-        nose.tools.ok_(res == 1,
-                       "res not 1: {}".format(res))
-
     def test_dump(self):
         with unittest.mock.patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
             self.esl.dump({"event": "event"})
         print(mock_stdout.getvalue())
         nose.tools.ok_(mock_stdout.getvalue() == '{\n  "event": "event"\n}\n',
                        "Incorrect output:\n{}".format(mock_stdout.getvalue()))
+
+    def test_post(self):
+        status = self.esl.post({"es-logger": True})
+        nose.tools.ok_(status == 0)
+
+    def test_post_bad(self):
+        status = self.esl.post(None)
+        nose.tools.ok_(status == 1)

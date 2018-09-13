@@ -31,11 +31,10 @@ What to gather data from:
     ES_JOB_NAME             The "Full Project Name" style job name for the job to process
     ES_BUILD_NUMBER         The build number for the job to process
 
-Where to push the data:
-    LOGSTASH_SERVER         The server to send events to
-    LS_USER                 The user for logstash access
-    LS_PASSWORD             The password for logstash access
+Target Variables:
 '''
+
+    desc = desc + es_logger.EsLogger.get_event_target_plugin_help()
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=desc)
@@ -47,6 +46,7 @@ Where to push the data:
     parser.add_argument('-c', '--console-length', type=int, default=32500)
     parser.add_argument('-e', '--events-only', action='store_true')
     parser.add_argument('-p', '--list-plugins', action='store_true')
+    parser.add_argument('-t', '--target', action='append', default=['logstash'])
 
     parser.add_argument(
         '--debug', action='store_true', help='Print debug logs to console during execution')
@@ -68,11 +68,11 @@ def main():
     args = parse_args()
     configure_logging(args)
 
-    esl = es_logger.EsLogger(console_length=args.console_length)
     if args.list_plugins:
-        esl.list_plugins()
+        es_logger.EsLogger.list_plugins()
         sys.exit(0)
 
+    esl = es_logger.EsLogger(console_length=args.console_length, targets=args.target)
     esl.get_build_data()
     esl.get_events()
 

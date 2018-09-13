@@ -74,6 +74,9 @@ setup(
             'ansible_recap_v2 = es_logger.plugins.ansible:AnsibleRecapEvent',
             'junit = es_logger.plugins.junit:JUnitEvent',
         ],
+        'es_logger.plugins.event_target': [
+            'logstash = es_logger.plugins.target:LogstashTarget',
+        ],
     },
 
     data_files=[("", ["LICENSE", "VERSION"])],

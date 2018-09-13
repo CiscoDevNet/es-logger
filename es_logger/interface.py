@@ -79,3 +79,37 @@ class EventGenerator(object):
         :type esl: object
         :returns: list(obj)
         """
+
+
+@six.add_metaclass(abc.ABCMeta)
+class EventTarget(object):
+    """
+    Base class for an event target
+    """
+
+    def __init__(self):
+        super(EventTarget, self).__init__()
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_help_string(self):
+        """
+        """
+
+    @abc.abstractmethod
+    def validate(self):
+        """
+        Validate that we have all we need to send to target
+
+        :returns: boolean
+        """
+
+    @abc.abstractmethod
+    def send_event(self, json_event):
+        """
+        Parse the console log and return a dict for ES
+
+        :param json_event: The variable containing the event to send
+        :type json_event: dict
+        :returns: int
+        """
