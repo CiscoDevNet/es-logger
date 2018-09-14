@@ -31,6 +31,26 @@ class DummyEventGenerator(es_logger.interface.EventGenerator):
         return [{'DummyEventGenerator': 1}, {'DummyEventGenerator': 2}]
 
 
+class DummyEventTarget(es_logger.interface.EventTarget):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def get_help_string():
+        return '''
+Dummy Target Environment Variables:
+    DUMMY_SERVER            The server to send events to
+'''
+
+    def validate(self):
+        return True
+
+    def send_event(self, json_event):
+        if json_event is None:
+            return 1
+        return 0
+
+
 class TestPlugins(object):
 
     def test_console_log_processor_plugins(self):
@@ -46,3 +66,9 @@ class TestPlugins(object):
         fields = eg.get_fields()
         nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
         eg.generate_events({'es_logger': True})
+
+    def test_event_target_plugins(self):
+        help_str = DummyEventTarget.get_help_string()
+        nose.tools.assert_is_instance(help_str, str)
+        et = DummyEventTarget()
+        et.send_event({'es_logger': True})

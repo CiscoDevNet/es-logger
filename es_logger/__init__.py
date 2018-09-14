@@ -117,7 +117,7 @@ LOGGER = logging.getLogger(__name__)
 
 class EsLogger(object):
     # Initialise the object
-    def __init__(self, console_length):
+    def __init__(self, console_length, targets):
         self.data_name = type(self).__name__.lower()
 
         self.server = None
@@ -128,11 +128,6 @@ class EsLogger(object):
         self.es_job_name = None
         self.es_build_number = None
         self.build_info_fields = ['description', 'number', 'url']
-
-        self.logstash_server = None
-        self.ls_user = None
-        self.ls_password = None
-        self.ls_session = None
 
         self.es_info = {}
         self.es_info['test_report'] = None
@@ -152,13 +147,17 @@ class EsLogger(object):
                                           password=self.jenkins_password)
         self.es_job_name = self.get_es_job_name()
         self.es_build_number = self.get_es_build_number()
-        self.logstash_server = self.get_logstash_server()
-        self.ls_user = self.get_ls_user()
-        self.ls_password = self.get_ls_password()
         self.process_console_logs = self.get_process_console_logs()
         self.gather_build_data = self.get_gather_build_data()
         self.generate_events = self.get_generate_events()
         self.console_length = console_length
+
+        self.targets = []
+        for target in targets:
+            self.targets.append(driver.DriverManager(namespace='es_logger.plugins.event_target',
+                                                     invoke_on_load=True, name=target))
+            print(self.targets[-1].driver)
+        LOGGER.info('Using targets: {}'.format(targets))
 
     ####################################
     # Get variables from the environment
@@ -187,21 +186,6 @@ class EsLogger(object):
         if not self.es_build_number:
             return int(os.environ.get('ES_BUILD_NUMBER', 0))
         return self.es_build_number
-
-    def get_logstash_server(self):
-        if not self.logstash_server:
-            return os.environ.get('LOGSTASH_SERVER')
-        return self.logstash_server
-
-    def get_ls_user(self):
-        if not self.ls_user:
-            return os.environ.get('LS_USER')
-        return self.ls_user
-
-    def get_ls_password(self):
-        if not self.ls_password:
-            return os.environ.get('LS_PASSWORD')
-        return self.ls_password
 
     def get_process_console_logs(self):
         if not self.process_console_logs:
@@ -235,19 +219,33 @@ class EsLogger(object):
     ################
 
     # List all of the plugins we know about
-    def list_plugins(self):
+    @staticmethod
+    def list_plugins():
         def print_plugin(ext):
             print("\t{}".format(ext.entry_point.name))
 
         for namespace in ['es_logger.plugins.gather_build_data',
                           'es_logger.plugins.console_log_processor',
-                          'es_logger.plugins.event_generator']:
+                          'es_logger.plugins.event_generator',
+                          'es_logger.plugins.event_target']:
             mgr = ExtensionManager(namespace=namespace, invoke_on_load=False)
             print("{}:".format(namespace))
             if len(mgr.names()) > 0:
                 mgr.map(print_plugin)
             else:
                 print("\tNone found")
+
+    # Return the help for all of the event_target plugins loaded
+    @staticmethod
+    def get_event_target_plugin_help():
+        ret = ''
+        mgr = ExtensionManager(namespace='es_logger.plugins.event_target', invoke_on_load=False)
+        for target_plugin in mgr.names():  # All known target plugins
+            drv = driver.DriverManager(namespace='es_logger.plugins.event_target',
+                                       invoke_on_load=False,
+                                       name=target_plugin)
+            ret = ret + '\n{}'.format(drv.driver.get_help_string())
+        return ret
 
     # Get the data that we want from a build
     def get_build_data(self):
@@ -390,21 +388,14 @@ class EsLogger(object):
                 self.es_job_name, self.es_build_number)
         return self.es_info['test_report']
 
-    def get_session(self):
-        if self.ls_session is None:
-            self.ls_session = requests.Session()
-            self.ls_session.auth = (self.ls_user, self.ls_password)
-        return self.ls_session
-
-    # Post to ES
-    def post(self, json_event):
-        session = self.get_session()
-        r = session.post(self.logstash_server, json=json_event)
-        print(r)
-        if r.ok:
-            return 0
-        return 1
-
     # Dump the string
     def dump(self, json_event):
         print(json.dumps(json_event, sort_keys=True, indent=2))
+
+    # Post the event to each target
+    def post(self, json_event):
+        status = 0
+        for target in self.targets:
+            status += target.driver.send_event(json_event)
+            print(status)
+        return status
