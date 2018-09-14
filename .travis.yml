@@ -10,18 +10,18 @@ jobs:
       python: 3.6
       env:
         - TOX_ENV=py36
-    - python: 3.7
+    - &main-env
+      python: 3.7
       dist: xenial
       sudo: true
       env:
         - TOX_ENV=py37
-    - python: 3.7
-      dist: xenial
-      sudo: true
+    - <<: *main-env
       env:
         - TOX_ENV=flake8
     - stage: deploy
       if: branch = master
+      <<: *main-env
       script: skip
       before_deploy: "python ./setup.py sdist"
       deploy:
