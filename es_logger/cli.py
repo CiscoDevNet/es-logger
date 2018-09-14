@@ -40,14 +40,20 @@ Target Variables:
                                      description=desc)
 
     output = parser.add_mutually_exclusive_group()
-    output.add_argument('--no-dump', action='store_true')
-    output.add_argument('--no-post', action='store_true')
+    output.add_argument('--no-dump', action='store_true', help='Do not dump events to the console')
+    output.add_argument('--no-post', action='store_true', help='Do not post events to any targets')
 
-    parser.add_argument('-c', '--console-length', type=int, default=32500)
-    parser.add_argument('-e', '--events-only', action='store_true')
-    parser.add_argument('-p', '--list-plugins', action='store_true')
-    parser.add_argument('-t', '--target', action='append',
-                        help='Target to post to, default is logstash')
+    parser.add_argument(
+        '-c', '--console-length', type=int, default=32500,
+        help='Restrict the console length in the event to this number of characters')
+    parser.add_argument(
+        '-e', '--events-only', action='store_true',
+        help='Do not dump or post the main job event, only events from EventGenerator plugins')
+    parser.add_argument(
+        '-p', '--list-plugins', action='store_true', help='List all plugins available')
+    parser.add_argument(
+        '-t', '--target', action='append',
+        help='A target to send events to, defaults to logstash if no other is specified')
 
     parser.add_argument(
         '--debug', action='store_true', help='Print debug logs to console during execution')
