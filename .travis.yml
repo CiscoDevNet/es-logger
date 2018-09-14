@@ -23,6 +23,7 @@ jobs:
     - stage: deploy
       if: branch = master
       script: skip
+      before_deploy: "python ./setup.py sdist"
       deploy:
         provider: pypi
         user: j3p0uk
