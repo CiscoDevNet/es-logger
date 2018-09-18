@@ -46,12 +46,16 @@ Target Variables:
     parser.add_argument('-c', '--console-length', type=int, default=32500)
     parser.add_argument('-e', '--events-only', action='store_true')
     parser.add_argument('-p', '--list-plugins', action='store_true')
-    parser.add_argument('-t', '--target', action='append', default=['logstash'])
+    parser.add_argument('-t', '--target', action='append',
+                        help='Target to post to, default is logstash')
 
     parser.add_argument(
         '--debug', action='store_true', help='Print debug logs to console during execution')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.target is None:
+        args.target = ['logstash']
+    return args
 
 
 def configure_logging(args):
@@ -86,5 +90,8 @@ def main():
             esl.dump(e)
         if not args.no_post:
             status += esl.post(e)
+
+    if not args.no_post:
+        status += esl.finish()
 
     sys.exit(status)

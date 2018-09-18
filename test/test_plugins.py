@@ -72,3 +72,4 @@ class TestPlugins(object):
         nose.tools.assert_is_instance(help_str, str)
         et = DummyEventTarget()
         et.send_event({'es_logger': True})
+        et.finish_send()

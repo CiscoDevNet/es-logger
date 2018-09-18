@@ -156,7 +156,6 @@ class EsLogger(object):
         for target in targets:
             self.targets.append(driver.DriverManager(namespace='es_logger.plugins.event_target',
                                                      invoke_on_load=True, name=target))
-            print(self.targets[-1].driver)
         LOGGER.info('Using targets: {}'.format(targets))
 
     ####################################
@@ -397,5 +396,11 @@ class EsLogger(object):
         status = 0
         for target in self.targets:
             status += target.driver.send_event(json_event)
+        return status
+
+    def finish(self):
+        status = 0
+        for target in self.targets:
+            status += target.driver.finish_send()
             print(status)
         return status

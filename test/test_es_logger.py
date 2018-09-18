@@ -241,3 +241,14 @@ class TestEsLogger(object):
     def test_post_bad(self):
         status = self.esl.post(None)
         nose.tools.ok_(status == 1)
+
+    def test_finish(self):
+        status = self.esl.finish()
+        nose.tools.ok_(status == 0)
+
+    def test_finish_bad(self):
+        mock_target = unittest.mock.MagicMock()
+        mock_target.driver.finish_send.return_value = 1
+        self.esl.targets = [mock_target, mock_target]
+        status = self.esl.finish()
+        nose.tools.ok_(status == 2)
