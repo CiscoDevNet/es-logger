@@ -25,6 +25,7 @@ class TestCli(object):
         mock_es_info = unittest.mock.MagicMock()
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).es_info = mock_es_info
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).post.return_value = 0
+        mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).finish.return_value = 0
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).events = [mock_event,
                                                                               mock_event]
         with unittest.mock.patch('sys.exit', side_effect=ExitException) as mock_exit:
@@ -38,7 +39,8 @@ class TestCli(object):
                      unittest.mock.call().dump(mock_event),
                      unittest.mock.call().post(mock_event),
                      unittest.mock.call().dump(mock_event),
-                     unittest.mock.call().post(mock_event)]
+                     unittest.mock.call().post(mock_event),
+                     unittest.mock.call().finish()]
             print(mock_esl.method_calls)
             nose.tools.ok_(mock_esl.method_calls == calls)
 
@@ -54,6 +56,7 @@ class TestCli(object):
     @unittest.mock.patch('es_logger.EsLogger', autospec=True)
     def test_console_length(self, mock_esl):
         mock_esl(0, []).events = []
+        mock_esl(0, []).finish.return_value = 0
         sys.argv = ['es-logger', '-c', '1000', '-e']
         with unittest.mock.patch('sys.exit', side_effect=ExitException()) as mock_exit:
             nose.tools.assert_raises(ExitException, es_logger.cli.main)
@@ -69,6 +72,7 @@ class TestCli(object):
         mock_es_info = unittest.mock.MagicMock()
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).es_info = mock_es_info
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).post.return_value = 0
+        mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).finish.return_value = 0
         mock_esl(console_length=DEFAULT_CONSOLE_LENGTH, targets=[]).events = [mock_event,
                                                                               mock_event]
         with unittest.mock.patch('sys.exit', side_effect=ExitException) as mock_exit:
@@ -80,7 +84,8 @@ class TestCli(object):
                      unittest.mock.call().dump(mock_event),
                      unittest.mock.call().post(mock_event),
                      unittest.mock.call().dump(mock_event),
-                     unittest.mock.call().post(mock_event)]
+                     unittest.mock.call().post(mock_event),
+                     unittest.mock.call().finish()]
             print(mock_esl.method_calls)
             nose.tools.ok_(mock_esl.method_calls == calls, "Calls made don't match expected")
 

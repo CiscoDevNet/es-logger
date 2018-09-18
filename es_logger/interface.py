@@ -113,3 +113,6 @@ class EventTarget(object):
         :type json_event: dict
         :returns: int
         """
+
+    def finish_send(self):
+        return 0
