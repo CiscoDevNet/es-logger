@@ -1,7 +1,7 @@
 ES-Logger
 =========
 
-[![Build Status](https://travis-ci.org/CiscoDevNet/es-logger.svg?branch=master)](https://travis-ci.org/CiscoDevNet/es-logger) [![PyPi](https://img.shields.io/pypi/v/es-logger.svg)](https://pypi.org/project/es-logger/)
+[![Build Status](https://travis-ci.org/CiscoDevNet/es-logger.svg?branch=master)](https://travis-ci.org/CiscoDevNet/es-logger) [![PyPi](https://img.shields.io/pypi/v/es-logger.svg)](https://pypi.org/project/es-logger/) [![Gitter chat](https://badges.gitter.im/es-logger.png)](https://gitter.im/es-logger)
 
 The es-logger project intends to build a pluggable data processor that will take data from
 Jenkins builds and push that data into Elasticsearch via Logstash.
