@@ -55,6 +55,11 @@ class JUnitEvent(EventGenerator):
                     else:
                         suite_unknown += 1
                     case['type'] = 'case'
+                    if 'errorDetails' in case.keys():
+                        if case['errorDetails'] is not None:
+                            case['errorDetailsTruncated'] = case['errorDetails'][:255]
+                        else:
+                            case['errorDetailsTruncated'] = None
                     output_list.append(case)
                 suite['passCount'] = suite_pass
                 suite['skipCount'] = suite_skip
