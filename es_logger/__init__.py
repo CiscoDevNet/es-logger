@@ -402,5 +402,4 @@ class EsLogger(object):
         status = 0
         for target in self.targets:
             status += target.driver.finish_send()
-            print(status)
         return status
