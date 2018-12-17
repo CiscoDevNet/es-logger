@@ -6,10 +6,6 @@ script:
   - tox -e $TOX_ENV
 jobs:
   include:
-    - stage: test
-      python: 3.6
-      env:
-        - TOX_ENV=py36
     - &main-env
       python: 3.7
       dist: xenial
