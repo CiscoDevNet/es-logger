@@ -32,8 +32,7 @@ class TestCli(object):
             nose.tools.assert_raises(ExitException, es_logger.cli.main)
             mock_exit.assert_called_with(0)
             calls = [unittest.mock.call.get_event_target_plugin_help(),
-                     unittest.mock.call().get_build_data(),
-                     unittest.mock.call().get_events(),
+                     unittest.mock.call().gather_all(),
                      unittest.mock.call().dump(mock_es_info),
                      unittest.mock.call().post(mock_es_info),
                      unittest.mock.call().dump(mock_event),
@@ -79,8 +78,7 @@ class TestCli(object):
             nose.tools.assert_raises(ExitException, es_logger.cli.main)
             mock_exit.assert_called_with(0)
             calls = [unittest.mock.call.get_event_target_plugin_help(),
-                     unittest.mock.call().get_build_data(),
-                     unittest.mock.call().get_events(),
+                     unittest.mock.call().gather_all(),
                      unittest.mock.call().dump(mock_event),
                      unittest.mock.call().post(mock_event),
                      unittest.mock.call().dump(mock_event),

@@ -83,8 +83,7 @@ def main():
         sys.exit(0)
 
     esl = es_logger.EsLogger(console_length=args.console_length, targets=args.target)
-    esl.get_build_data()
-    esl.get_events()
+    esl.gather_all()
 
     status = 0
     # Loop over all of the events to send,

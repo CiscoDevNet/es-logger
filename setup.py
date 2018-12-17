@@ -50,6 +50,7 @@ setup(
         'python-jenkins>=1.0.0',
         'requests',
         'stevedore',
+        'zmq',
     ],
 
     platforms=['Any'],
@@ -64,6 +65,7 @@ setup(
     entry_points={
         'console_scripts': [
             'es-logger=es_logger.cli:main',
+            'zmq-es-logger=es_logger.zmq_client:main',
         ],
         'es_logger.plugins.console_log_processor': [
         ],
