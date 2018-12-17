@@ -39,6 +39,8 @@ class TestZMQClient(object):
 
     def setup(self):
         self.zmqd = es_logger.zmq_client.ESLoggerZMQDaemon()
+        self.zmqd.async_main_sleep = 5
+        self.zmqd.worker_sleep = 5
         self.loop = asyncio.new_event_loop()
         self.loop.set_debug(True)
         asyncio.set_event_loop(self.loop)
@@ -77,14 +79,14 @@ class TestZMQClient(object):
         config['plugins']['gather_build_data'] = 'gather_build_data'
         config['plugins']['generate_events'] = 'generate_events'
 
-    async def dummyTask(self, count, sleep=0, return_status=0, exception=None):
-        print(f"I am dummyTask {count}")
+    async def dummyTask(self, name, sleep=0, return_status=0, exception=None):
+        print(f"I am dummyTask {name}")
         # Give 5 seconds to ensure the main loop drops into check status
         if sleep > 0:
             await asyncio.sleep(sleep)
         if exception is not None:
             raise exception
-        print(f"dummyTask {count} finishing")
+        print(f"dummyTask {name} finishing")
         return return_status
 
     # Test call flow with good options
@@ -181,7 +183,7 @@ class TestZMQClient(object):
         self.zmqd.queue = asyncio.Queue()
         task = asyncio.create_task(self.zmqd.worker(f'worker-1'))
         # Yield control to the worker task
-        await asyncio.sleep(16)
+        await asyncio.sleep(self.zmqd.worker_sleep + 1)
         # Cancel the worker
         task.cancel()
         return await asyncio.gather(task, return_exceptions=True)
@@ -227,7 +229,7 @@ class TestZMQClient(object):
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Listener Starting against tcp://jenkins.example.com:8888',
              'DEBUG:root:Listener waiting for message',
-             'DEBUG:root:Adding ({<Future finished result=1>}, set()) to queue 0',
+             'DEBUG:root:Adding 1 to queue 0',
              'DEBUG:root:Listener waiting for message',
              'DEBUG:root:Listener cancelled, finishing',
              'INFO:root:Listener Finished'])
@@ -244,7 +246,7 @@ class TestZMQClient(object):
     async def async_recv(self, mc_instance):
         future_msg = asyncio.Future()
         future_msg.set_result(1)
-        mc_instance.socket().recv_multipart.side_effect = [[future_msg], [asyncio.Future()]]
+        mc_instance.socket().recv_multipart.side_effect = [future_msg, asyncio.Future()]
         listener = asyncio.create_task(self.zmqd.recv())
         await asyncio.sleep(1)
         listener.cancel()
@@ -394,6 +396,42 @@ class TestZMQClient(object):
         self.zmqd.listener = asyncio.create_task(self.dummyTask(1))
         self.zmqd.tasks = [asyncio.create_task(
             self.dummyTask(2, exception=Exception("Exception message")))]
+        return await self.zmqd.async_main()
+
+    def test_async_main_bad_listener(self):
+        self.zmqd.queue = asyncio.Queue()
+        self.zmqd.start = unittest.mock.MagicMock()
+        self.zmqd.stop = unittest.mock.MagicMock()
+        self.zmqd.check_listener = unittest.mock.MagicMock()
+        self.zmqd.check_listener.return_value = False
+        with nose.tools.assert_logs(level='DEBUG') as cm:
+            status = asyncio.run(self.async_async_bad_listener())
+        nose.tools.ok_(status == 1)
+        self.zmqd.stop.assert_called_once()
+        nose.tools.assert_in('WARNING:root:Listener not running', cm.output)
+
+    async def async_async_bad_listener(self):
+        self.zmqd.listener = asyncio.create_task(
+            self.dummyTask("listener", sleep=3, exception=Exception("Exception message")))
+        self.zmqd.tasks = [asyncio.create_task(self.dummyTask("worker", sleep=5))]
+        return await self.zmqd.async_main()
+
+    def test_async_main_bad_worker(self):
+        self.zmqd.queue = asyncio.Queue()
+        self.zmqd.start = unittest.mock.MagicMock()
+        self.zmqd.stop = unittest.mock.MagicMock()
+        self.zmqd.check_tasks = unittest.mock.MagicMock()
+        self.zmqd.check_tasks.return_value = False
+        with nose.tools.assert_logs(level='DEBUG') as cm:
+            status = asyncio.run(self.async_async_bad_worker())
+        nose.tools.ok_(status == 1)
+        self.zmqd.stop.assert_called_once()
+        nose.tools.assert_in('WARNING:root:Tasks not running', cm.output)
+
+    async def async_async_bad_worker(self):
+        self.zmqd.listener = asyncio.create_task(self.dummyTask("listener", sleep=5))
+        self.zmqd.tasks = [asyncio.create_task(
+            self.dummyTask("worker", sleep=3, exception=Exception("Exception message")))]
         return await self.zmqd.async_main()
 
     @unittest.mock.patch('es_logger.zmq_client.asyncio', autospec=True)
