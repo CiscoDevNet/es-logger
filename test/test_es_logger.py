@@ -7,7 +7,6 @@ import es_logger
 import io
 from jenkins import JenkinsException, NotFoundException
 import nose
-import os
 from parameterized import parameterized
 import pkg_resources
 import requests
@@ -17,6 +16,14 @@ import unittest.mock
 
 class TestEsLogger(object):
 
+    @unittest.mock.patch.dict(
+        'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
+                       'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
+                       'ES_BUILD_NUMBER': '1000', 'PROCESS_CONSOLE_LOGS':
+                       'process_console_logs1 process_console_logs2 process_console_logs3',
+                       'GATHER_BUILD_DATA':
+                       'gather_build_data1 gather_build_data2 gather_build_data3',
+                       'GENERATE_EVENTS': 'generate_events1 generate_events2 generate_events3'})
     def setup(self):
         dep = pkg_resources.EntryPoint.parse(
             'dummy = test.test_plugins:DummyEventTarget')
@@ -83,21 +90,25 @@ class TestEsLogger(object):
 
     @parameterized.expand(['jenkins_url', 'jenkins_user', 'jenkins_password', 'es_job_name'])
     def test_get(self, param):
+        # Recreate the esl to validate parameters aren't set
+        self.esl = es_logger.EsLogger(1000, ['dummy'])
         nose.tools.ok_(getattr(self.esl, param) is None,
                        "{} not None: {}".format(param, getattr(self.esl, param)))
         getter = getattr(self.esl, 'get_' + param)
-        os.environ[param.upper()] = param
-        setattr(self.esl, param, getter())
-        nose.tools.ok_(getter() == param,
-                       "{} returned {} not {}".format(getter.__name__, getter(), param))
+        with unittest.mock.patch.dict('os.environ', {param.upper(): param}):
+            setattr(self.esl, param, getter())
+            nose.tools.ok_(getter() == param,
+                           "{} returned {} not {}".format(getter.__name__, getter(), param))
 
     def test_get_es_build_number(self):
+        # Recreate the esl to validate parameters aren't set
+        self.esl = es_logger.EsLogger(1000, ['dummy'])
         nose.tools.ok_(self.esl.es_build_number == 0,
                        "self.esl.es_build_number not 0: {}".format(self.esl.es_build_number))
-        os.environ['ES_BUILD_NUMBER'] = '1000'
-        self.esl.es_build_number = self.esl.get_es_build_number()
-        nose.tools.ok_(self.esl.get_es_build_number() == 1000,
-                       "{} not returning {}".format(self.esl.get_es_build_number, 1000))
+        with unittest.mock.patch.dict('os.environ', {'ES_BUILD_NUMBER': '1000'}):
+            self.esl.es_build_number = self.esl.get_es_build_number()
+            nose.tools.ok_(self.esl.get_es_build_number() == 1000,
+                           "{} not returning {}".format(self.esl.get_es_build_number, 1000))
 
     @parameterized.expand(['process_console_logs', 'gather_build_data', 'generate_events'])
     def test_get_plugin(self, param):
@@ -105,15 +116,18 @@ class TestEsLogger(object):
             base = ['commit']
         else:
             base = []
+        # Recreate the esl to validate parameters aren't set
+        self.esl = es_logger.EsLogger(1000, ['dummy'])
         nose.tools.ok_(getattr(self.esl, param) == base,
                        "{} not []: {}".format(param, getattr(self.esl, param)))
         setattr(self.esl, param, None)
         getter = getattr(self.esl, 'get_' + param)
-        os.environ[param.upper()] = "{}1 {}2 {}3".format(param, param, param)
-        plugins = getter()
-        expected = [param + '1', param + '2', param + '3'] + base
-        nose.tools.ok_(plugins == expected,
-                       "{} returned {} not {}".format(getter.__name__, getter(), expected))
+        with unittest.mock.patch.dict('os.environ',
+                                      {param.upper(): "{}1 {}2 {}3".format(param, param, param)}):
+            plugins = getter()
+            expected = [param + '1', param + '2', param + '3'] + base
+            nose.tools.ok_(plugins == expected,
+                           "{} returned {} not {}".format(getter.__name__, getter(), expected))
 
     def test_list_plugins(self):
         dep = pkg_resources.EntryPoint.parse(
@@ -124,49 +138,63 @@ class TestEsLogger(object):
         ExtensionManager.ENTRY_POINT_CACHE = {}
         self.esl.list_plugins()
 
+    def test_list_plugins_data_only(self):
+        dep = pkg_resources.EntryPoint.parse(
+            'dummy = test.test_plugins:DummyConsoleLogProcessor')
+        d = pkg_resources.Distribution()
+        d._ep_map = {'es_logger.plugins.console_log_processor': {'dummy': dep}}
+        pkg_resources.working_set.add(d, 'dummy')
+        ExtensionManager.ENTRY_POINT_CACHE = {}
+        self.esl.list_plugins(True, 'console_log_processor')
+
     def test_get_build_data(self):
-        self.esl.gather_build_data = ['dummy']
+        # Recreate the esl to validate parameters aren't set
+        with unittest.mock.patch.dict(
+                'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
+                               'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
+                               'ES_BUILD_NUMBER': '2', 'GATHER_BUILD_DATA': 'dummy'}):
+            self.esl = es_logger.EsLogger(1000, ['dummy'])
         self.esl.es_build_number = '2'
         with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_env_vars') as mock_env_vars, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_console:
-                    mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '1',
-                                                             'JOB_NAME': 'job_name',
-                                                             'BUILD_URL': 'url',
-                                                             'dummy': 'dummy'}}
-                    mock_build_info.return_value = {
-                        'description': 'description',
-                        'number': '1',
-                        'url': 'url',
-                        'actions': [{'_class': 'hudson.model.ParametersAction',
-                                     'parameters': [{'name': 'param', 'value': 'value'}]},
-                                    {'_class': 'hudson.plugins.git.util.BuildData',
-                                     'buildsByBranchName': {'b1': {'buildNumber': '1'},
-                                                            'b2': {'buildNumber': '2'}},
-                                     'remoteUrls': ["repoURL"]}]}
-                    mock_console.return_value = 'log'
-                    self.esl.get_build_data()
-                    mock_driver_mgr.assert_called_once()
-                    # Console log recorded
-                    nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
-                                   "console_log not 'log': {}".format(self.esl.es_info))
-                    # Parameters pulled out
-                    nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
-                                   "Parameter 'param' not 'value': {}".format(self.esl.es_info))
-                    # Prevent ES field explosion through rewrite of builds by branch name
-                    nose.tools.ok_(
-                        self.esl.es_info['build_info']['actions'][1]['buildsByBranchName'] ==
-                        'Removed by es-logger',
-                        "buildsByBranchName not removed by es-logger: {}".format(self.esl.es_info))
-                    # Make sure the gather of the gather_build_data plugins was called
-                    nose.tools.ok_('dummy' in self.esl.es_info['build_data'].keys(),
-                                   "dummy not in build_data keys: {}".format(
-                                       self.esl.es_info))
-                    # SCM correctly processed
-                    nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
-                                   "repoURL not in build_data keys: {}".format(
-                                       self.esl.es_info['build_data']))
+            mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '1',
+                                                     'JOB_NAME': 'job_name',
+                                                     'BUILD_URL': 'url',
+                                                     'dummy': 'dummy'}}
+            mock_build_info.return_value = {
+                'description': 'description',
+                'number': '1',
+                'url': 'url',
+                'actions': [{'_class': 'hudson.model.ParametersAction',
+                             'parameters': [{'name': 'param', 'value': 'value'}]},
+                            {'_class': 'hudson.plugins.git.util.BuildData',
+                             'buildsByBranchName': {'b1': {'buildNumber': '1'},
+                                                    'b2': {'buildNumber': '2'}},
+                             'remoteUrls': ["repoURL"]}]}
+            mock_console.return_value = 'log'
+            self.esl.get_build_data()
+            mock_driver_mgr.assert_called_once()
+            # Console log recorded
+            nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
+                           "console_log not 'log': {}".format(self.esl.es_info))
+            # Parameters pulled out
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
+                           "Parameter 'param' not 'value': {}".format(self.esl.es_info))
+            # Prevent ES field explosion through rewrite of builds by branch name
+            nose.tools.ok_(
+                self.esl.es_info['build_info']['actions'][1]['buildsByBranchName'] ==
+                'Removed by es-logger',
+                "buildsByBranchName not removed by es-logger: {}".format(self.esl.es_info))
+            # Make sure the gather of the gather_build_data plugins was called
+            nose.tools.ok_('dummy' in self.esl.es_info['build_data'].keys(),
+                           "dummy not in build_data keys: {}".format(
+                               self.esl.es_info))
+            # SCM correctly processed
+            nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
+                           "repoURL not in build_data keys: {}".format(
+                               self.esl.es_info['build_data']))
 
     def test_process_build_info_actions_no_key_error(self):
         self.esl.es_info = {'build_info': {'actions': [
@@ -219,6 +247,20 @@ class TestEsLogger(object):
             nose.tools.ok_('timestamp' in self.esl.events[0]['build_info'].keys(),
                            "No timestamp in event: {}".format(
                                 self.esl.events[0]['build_info'].keys()))
+
+    def test_gather_all(self):
+        with unittest.mock.patch('es_logger.EsLogger.get_build_data') as mock_get_build_data, \
+                unittest.mock.patch('es_logger.EsLogger.get_events') as mock_get_events:
+            self.esl.gather_all()
+            mock_get_build_data.assert_called_once()
+            mock_get_events.assert_called_once()
+
+    def test_post_all(self):
+        with unittest.mock.patch('es_logger.EsLogger.post') as mock_post, \
+                unittest.mock.patch('es_logger.EsLogger.finish') as mock_finish:
+            self.esl.post_all()
+            mock_post.assert_called_once()
+            mock_finish.assert_called_once()
 
     def test_get_test_report(self):
         with unittest.mock.patch('jenkins.Jenkins.get_build_test_report') as mock_get:

@@ -4,8 +4,11 @@
 __author__ = 'jonpsull'
 
 from ..interface import EventTarget
+import logging
 import os
 import requests
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LogstashTarget(EventTarget):
@@ -40,6 +43,7 @@ Logstash Target Environment Variables:
     def send_event(self, json_event):
         session = self.get_session()
         r = session.post(self.logstash_server, json=json_event)
+        LOGGER.debug("Posted event, result {}".format(r.ok))
         if r.ok:
             return 0
         return 1
@@ -61,6 +65,7 @@ Logstash Target Environment Variables:
 
     def get_session(self):
         if self.ls_session is None:
+            LOGGER.debug("Creating session against {}".format(self.logstash_server))
             self.ls_session = requests.Session()
             self.ls_session.auth = (self.ls_user, self.ls_password)
         return self.ls_session

@@ -219,18 +219,25 @@ class EsLogger(object):
 
     # List all of the plugins we know about
     @staticmethod
-    def list_plugins():
+    def list_plugins(data_only=False, namespaces=['gather_build_data', 'console_log_processor',
+                                                  'event_generator', 'event_target']):
         def print_plugin(ext):
             print("\t{}".format(ext.entry_point.name))
 
-        for namespace in ['es_logger.plugins.gather_build_data',
-                          'es_logger.plugins.console_log_processor',
-                          'es_logger.plugins.event_generator',
-                          'es_logger.plugins.event_target']:
-            mgr = ExtensionManager(namespace=namespace, invoke_on_load=False)
-            print("{}:".format(namespace))
-            if len(mgr.names()) > 0:
-                mgr.map(print_plugin)
+        plugins = {}
+        for namespace in namespaces:
+            plugins[namespace] = ExtensionManager(namespace='es_logger.plugins.' + namespace,
+                                                  invoke_on_load=False)
+        if data_only:
+            ret_list = []
+            for namespace in namespaces:
+                ret_list += plugins[namespace].names()
+            return ret_list
+
+        for namespace in namespaces:
+            print("{}:".format('es_logger.plugins.' + namespace))
+            if len(plugins[namespace].names()) > 0:
+                plugins[namespace].map(print_plugin)
             else:
                 print("\tNone found")
 
@@ -402,4 +409,16 @@ class EsLogger(object):
         status = 0
         for target in self.targets:
             status += target.driver.finish_send()
+        return status
+
+    def gather_all(self):
+        self.get_build_data()
+        self.get_events()
+
+    def post_all(self):
+        process_events = [self.es_info] + self.events
+        status = 0
+        for e in process_events:
+            status += self.post(e)
+        status += self.finish()
         return status
