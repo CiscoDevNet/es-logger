@@ -48,16 +48,17 @@ setup(
 
     install_requires=[
         'python-jenkins>=1.0.0',
+        'pyzmq',
         'requests',
         'stevedore',
-        'zmq',
     ],
 
     platforms=['Any'],
 
     scripts=[],
 
-    provides=['es_logger'],
+    provides=['es_logger',
+              'zmq_es_logger'],
 
     packages=find_packages(exclude=['docs', 'test']),
     include_package_data=True,

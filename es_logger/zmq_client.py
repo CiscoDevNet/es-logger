@@ -50,6 +50,8 @@ class ESLoggerZMQDaemon(object):
         self.process_console_logs = ''
         self.gather_build_data = ''
         self.generate_events = ''
+        self.async_main_sleep = 30
+        self.worker_sleep = 15
 
     # Read the configuration
     def configure(self, config_file='es-logger.ini'):
@@ -140,7 +142,7 @@ class ESLoggerZMQDaemon(object):
         while not current_task.done():
             try:
                 logging.debug("{} waiting for work".format(name))
-                msg = await asyncio.wait_for(self.queue.get(), 15)
+                msg = await asyncio.wait_for(self.queue.get(), self.worker_sleep)
                 logging.info("{} processing msg {}".format(name, msg))
                 result = self.es_logger_task(msg)
                 self.queue.task_done()
@@ -182,7 +184,7 @@ class ESLoggerZMQDaemon(object):
         while not current_task.done():
             try:
                 logging.debug("Listener waiting for message")
-                msg = await asyncio.wait(s.recv_multipart())
+                msg = await asyncio.wait_for(s.recv_multipart(), None)
                 logging.debug("Adding {} to queue {}".format(msg, self.queue.qsize()))
                 await self.queue.put(msg)
             except asyncio.CancelledError:
@@ -190,6 +192,7 @@ class ESLoggerZMQDaemon(object):
                 break
         s.close()
         logging.info("Listener Finished")
+        return 0
 
     # Start the threads for processing
     def start(self):
@@ -259,9 +262,15 @@ class ESLoggerZMQDaemon(object):
         await asyncio.sleep(2)
         logging.info("Started tasks, entering status check loop")
         while not self.tasks_done():
-            self.check_listener()
-            self.check_tasks()
-            await asyncio.sleep(30)
+            if not self.check_listener():
+                logging.warning("Listener not running")
+                self.stop()
+                break
+            if not self.check_tasks():
+                logging.warning("Tasks not running")
+                self.stop()
+                break
+            await asyncio.sleep(self.async_main_sleep)
 
         logging.info("Exited status check loop")
 
@@ -295,7 +304,7 @@ class ESLoggerZMQDaemon(object):
 
 # Shouldn't need individual unit testing, keep as simple as possible
 def main():  # pragma: no cover
-    configure_logging()
+    configure_logging(True)
     d = ESLoggerZMQDaemon()
     status = d.main()
     sys.exit(status)
