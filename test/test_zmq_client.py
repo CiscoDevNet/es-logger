@@ -149,7 +149,7 @@ class TestZMQClient(object):
              'INFO:root:worker-1 processing msg ' + self.sample_finished_message_log,
              'DEBUG:root:worker-1 result 0',
              'DEBUG:root:worker-1 waiting for work',
-             'DEBUG:root:worker-1 cancelled, finishing',
+             'INFO:root:worker-1 cancelled, finishing',
              'INFO:root:worker-1 Finished'])
 
     async def async_worker(self):
@@ -176,7 +176,7 @@ class TestZMQClient(object):
              'DEBUG:root:worker-1 waiting for work',
              'DEBUG:root:worker-1 timeout waiting for work, looping',
              'DEBUG:root:worker-1 waiting for work',
-             'DEBUG:root:worker-1 cancelled, finishing',
+             'INFO:root:worker-1 cancelled, finishing',
              'INFO:root:worker-1 Finished'])
 
     async def async_worker_timeout(self):
@@ -231,7 +231,7 @@ class TestZMQClient(object):
              'DEBUG:root:Listener waiting for message',
              'DEBUG:root:Adding 1 to queue 0',
              'DEBUG:root:Listener waiting for message',
-             'DEBUG:root:Listener cancelled, finishing',
+             'INFO:root:Listener cancelled, finishing',
              'INFO:root:Listener Finished'])
         context_calls = [
             unittest.mock.call.instance(),
@@ -264,7 +264,7 @@ class TestZMQClient(object):
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Starting',
-             'DEBUG:root:Started 2 workers'])
+             'INFO:root:Started 2 workers'])
         nose.tools.ok_(len(self.zmqd.tasks) == 2)
         nose.tools.ok_(self.zmqd.listener)
 
@@ -279,8 +279,8 @@ class TestZMQClient(object):
             '\n'.join(cm.output),
             '\n'.join(
                 [r'DEBUG:asyncio:Using selector: EpollSelector',
-                 r'DEBUG:root:Stopping listener',
-                 r'DEBUG:root:Stopping tasks',
+                 r'INFO:root:Stopping listener',
+                 r'INFO:root:Stopping tasks',
                  r'DEBUG:root:All Tasks: {.*}',
                  r'INFO:root:Stopped, waiting for tasks to finish']))
 

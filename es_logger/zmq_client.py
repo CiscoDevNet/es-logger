@@ -150,7 +150,7 @@ class ESLoggerZMQDaemon(object):
             except asyncio.TimeoutError:
                 logging.debug("{} timeout waiting for work, looping".format(name))
             except asyncio.CancelledError:
-                logging.debug("{} cancelled, finishing".format(name))
+                logging.info("{} cancelled, finishing".format(name))
                 break
         logging.info("{} Finished".format(name))
         return 0
@@ -188,7 +188,7 @@ class ESLoggerZMQDaemon(object):
                 logging.debug("Adding {} to queue {}".format(msg, self.queue.qsize()))
                 await self.queue.put(msg)
             except asyncio.CancelledError:
-                logging.debug("Listener cancelled, finishing")
+                logging.info("Listener cancelled, finishing")
                 break
         s.close()
         logging.info("Listener Finished")
@@ -209,15 +209,15 @@ class ESLoggerZMQDaemon(object):
         for i in range(self.num_workers):
             task = asyncio.create_task(self.worker(f'worker-{i}'))
             self.tasks.append(task)
-        logging.debug(f'Started {self.num_workers} workers')
+        logging.info(f'Started {self.num_workers} workers')
 
     # Cancel the threads for stopping
     def stop(self):
         if self.listener is not None:
-            logging.debug("Stopping listener")
+            logging.info("Stopping listener")
             self.listener.cancel()
         if len(self.tasks) > 0:
-            logging.debug("Stopping tasks")
+            logging.info("Stopping tasks")
             for task in self.tasks:
                 task.cancel()
         all_tasks = asyncio.Task.all_tasks()
@@ -304,7 +304,7 @@ class ESLoggerZMQDaemon(object):
 
 # Shouldn't need individual unit testing, keep as simple as possible
 def main():  # pragma: no cover
-    configure_logging(True)
+    configure_logging()
     d = ESLoggerZMQDaemon()
     status = d.main()
     sys.exit(status)
