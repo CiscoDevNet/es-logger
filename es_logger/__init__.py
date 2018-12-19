@@ -353,6 +353,8 @@ class EsLogger(object):
         # Add generic Jenkins info
         for field in self.build_info_fields:
             event_info['build_info'][field] = self.es_info['build_info'].get(field, '')
+            # As we previously did this, keep doing it
+            event_info[field] = event_info['build_info'][field]
 
         # Add the extras added by es-logger
         event_info[self.data_name] = dict(self.es_info[self.data_name])
