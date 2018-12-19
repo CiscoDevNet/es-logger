@@ -337,7 +337,7 @@ class EsLogger(object):
             self.es_info['console_log'] = self.console_log
 
     def get_event_info(self, fields):
-        event_info = {}
+        event_info = {'build_info': {}}
 
         if self.es_info['env_vars'] is not None:
             # XXX: Just returning self.es_info['env_vars'] is likely better...
@@ -352,7 +352,7 @@ class EsLogger(object):
 
         # Add generic Jenkins info
         for field in self.build_info_fields:
-            event_info[field] = self.es_info['build_info'].get(field, '')
+            event_info['build_info'][field] = self.es_info['build_info'].get(field, '')
 
         # Add the extras added by es-logger
         event_info[self.data_name] = dict(self.es_info[self.data_name])
