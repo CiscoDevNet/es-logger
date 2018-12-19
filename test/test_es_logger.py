@@ -247,6 +247,18 @@ class TestEsLogger(object):
             nose.tools.ok_('timestamp' in self.esl.events[0]['build_info'].keys(),
                            "No timestamp in event: {}".format(
                                 self.esl.events[0]['build_info'].keys()))
+            for field in self.esl.build_info_fields:
+                for count in range(2):
+                    nose.tools.ok_(self.esl.events[count]['build_info'][field] ==
+                                   self.esl.es_info['build_info'][field],
+                                   "Incorrect {} in event {} build_info: {}".format(
+                                        self.esl.events[count]['build_info'][field], count,
+                                        self.esl.es_info['build_info'][field]))
+                    nose.tools.ok_(self.esl.events[count]['build_info'][field] ==
+                                   self.esl.events[count][field],
+                                   "Incorrect {} in event {} build_info: {}".format(
+                                        self.esl.events[count]['build_info'][field], count,
+                                        self.esl.events[count][field]))
 
     def test_gather_all(self):
         with unittest.mock.patch('es_logger.EsLogger.get_build_data') as mock_get_build_data, \
