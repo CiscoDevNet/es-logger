@@ -458,6 +458,24 @@ class EsLogger(object):
                 self.es_job_name, self.es_build_number)
         return self.es_info['test_report']
 
+    def get_stages(self):
+        job_name = str(self.es_job_name).split('/')
+        request = requests.Request(method='GET', url=str(self.jenkins_url + 'job/' + job_name[0] + '/job/' +
+                                                         job_name[1] + '/wfapi/runs'))
+
+        try:
+            response = self.server.jenkins_request(request)
+
+        except:
+            return None
+
+        if response.ok:
+            self.es_info['stages'] = response.json()
+            # print(json.dumps(response.json(), indent=4, sort_keys=True))
+            return self.es_info['stages']
+        else:
+            return None
+
     # Dump the string
     def dump(self, json_event):
         print(json.dumps(json_event, sort_keys=True, indent=2))

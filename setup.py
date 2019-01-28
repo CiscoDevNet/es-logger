@@ -76,6 +76,7 @@ setup(
             'commit = es_logger.plugins.commit:CommitEvent',
             'ansible_recap_v2 = es_logger.plugins.ansible:AnsibleRecapEvent',
             'junit = es_logger.plugins.junit:JUnitEvent',
+            'stages = es_logger.plugins.stages:Stages'
         ],
         'es_logger.plugins.event_target': [
             'logstash = es_logger.plugins.target:LogstashTarget',
