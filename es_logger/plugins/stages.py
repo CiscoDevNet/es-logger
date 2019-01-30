@@ -21,12 +21,15 @@ class Stages(EventGenerator):
 
         output_list = []
 
-        stages = esl.get_stages()
+        stages_report = esl.get_stages()
 
-        most_recent = stages.pop(0)
+        if stages_report is not None:
 
-        for stage in most_recent['stages']:
-            output_list.append(stage)
+            stages = stages_report.pop('stages', None)
+            stages_report.pop('name', None)
+
+            for stage in stages:
+                output_list.append(stage)
 
         LOGGER.debug("Finished: {}".format(type(self).__name__))
         return output_list

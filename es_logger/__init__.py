@@ -459,20 +459,24 @@ class EsLogger(object):
         return self.es_info['test_report']
 
     def get_stages(self):
-        job_name = str(self.es_job_name).split('/')
-        request = requests.Request(method='GET', url=str(self.jenkins_url + 'job/' + job_name[0] + '/job/' +
-                                                         job_name[1] + '/wfapi/runs'))
+        build_info = self.server.get_build_info(self.es_job_name, self.es_build_number)
+
+        job_url = build_info['url']
+
+        request = requests.Request(method='GET', url=str(job_url + '/wfapi/describe'))
 
         try:
             response = self.server.jenkins_request(request)
-
+            ###
+            #
+            # How can I catch the exception here?
+            #
+            ###
         except:
             return None
 
         if response.ok:
-            self.es_info['stages'] = response.json()
-            # print(json.dumps(response.json(), indent=4, sort_keys=True))
-            return self.es_info['stages']
+            return response.json()
         else:
             return None
 
