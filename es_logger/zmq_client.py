@@ -88,7 +88,7 @@ class ESLoggerZMQDaemon(object):
         # Set the necessary environment variables
         for var in self.env_vars:
             val = getattr(self, var.lower())
-            if val is not None and val is not '':
+            if val is not None and val != '':
                 os.environ[var.upper()] = val
 
     # Make sure we are correctly configured
