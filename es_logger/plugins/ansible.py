@@ -46,18 +46,19 @@ class AnsibleRecapEvent(EventGenerator):
         # Find the recap start, e.g.: PLAY RECAP **...**
         # Find the recap end, which is finished with all tasks recapped
         profile_regex = re.compile(
-                r'PLAY\s*\[(?P<play>.*)\]\s*\**\s*\n' +     # Group 1 matches the play name
-                r'(?:.*\n(?!.*PLAY RECAP))*?' +             # Discard lines to 1st recap
-                r'\s*PLAY RECAP \**\s*\n' +                 # Match the recap start
-                r'(?P<hosts>(?:.*\n(?!.*PLAY RECAP))*?)' +  # Match all host lines, and not a recap
-                r'(?:\s*\n)+' +                             # Blank lines
-                r'.*?\s+(?P<total>[^\s]+)\s+\*+\s*\n' +     # Match total time
-                r'\s*={79}\s*\n' +                          # Separator
-                r'(?P<tasks>(?:(?:.*\s:\s)?.*---.*\n)*)',   # These are individual timings
+                r'PLAY\s*\[(?P<play>.*)\]\s*\**\s*\n' +            # Group 1 matches the play name
+                r'(?:.*\n(?!.*PLAY RECAP))*?' +                    # Discard lines to 1st recap
+                r'\s*PLAY RECAP \**\s*\n' +                        # Match the recap start
+                r'(?P<hosts>(?:.*\n(?!.*PLAY RECAP))*?)' +         # Match all host lines,
+                                                                   #    and not a recap
+                r'(?:\s*\n)+' +                                    # Blank lines
+                r'.*?\s+(?P<total>[^\s]+)\s+\*+\s*\n' +            # Match total time
+                r'\s*={79}\s*\n' +                                 # Separator
+                r'(?P<tasks>(?:(?:.*\s:\s)?.*\s[0-9.]+s\s*\n)*)',  # These are individual timings
                 re.MULTILINE)
         # Task output matcher, get a description and a timing from, e.g.:
         #  ssh-tunnel : Create the ssh-tunnel -...- 6.21s (not verified)
-        task_regex = re.compile(r'\s*(?P<task>.*?)\s+[-]{2,}\s+(?P<time>\S*)s.*?\n', re.MULTILINE)
+        task_regex = re.compile(r'\s*(?P<task>.*?)\s+[-]*\s+(?P<time>[0-9.]+)s.*?\n', re.MULTILINE)
         host_regex = re.compile(r'\s*(?P<host>[^\s]*)\s*:\s*(?P<status>.*?)\s*\n', re.MULTILINE)
 
         for recap_match in itertools.chain(recap_regex.finditer(esl.console_log),

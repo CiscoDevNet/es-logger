@@ -31,6 +31,7 @@ Sunday 15 April 2018  11:40:35 +0000 (0:00:03.299)       1:29:59.000 **********
 ===============================================================================
 plays-in-role-1 : The first task performed ---------------------------- 161.34s
 plays-in-role-2 : The last task performed with a long name leaving only 3 dashes --- 0.03s
+plays-in-role-3 : The last task performed with a long name leaving only 2 spaces  1.03s
 + ansible-playbook command
  [WARNING]: Found variable using reserved name: hosts
 
@@ -58,7 +59,7 @@ Total -------------------------------------------------- 259.72s (4 min 20 sec)
 Finished: SUCCESS
 '''
         events = eg.generate_events(esl)
-        nose.tools.ok_(len(events) == 8,
+        nose.tools.ok_(len(events) == 9,
                        "Wrong number of events returned ({}): {}".format(len(events), events))
         results = [
             {'play': 'Play 2', 'host': 'host2', 'ok': 4, 'changed': 3, 'unreachable': 2,
@@ -78,7 +79,11 @@ Finished: SUCCESS
             {'play': 'Play 1', 'total': 5399.0, 'time_percentage': 0.0005556584552694943,
              'description':
              'plays-in-role-2 : The last task performed with a long name leaving only 3 dashes',
-             'time': 0.03}]
+             'time': 0.03},
+            {'play': 'Play 1', 'total': 5399.0, 'time_percentage': 0.01907760696425264,
+             'description':
+             'plays-in-role-3 : The last task performed with a long name leaving only 2 spaces',
+             'time': 1.03}]
 
         for idx, event in enumerate(events):
             nose.tools.ok_(event == results[idx],
