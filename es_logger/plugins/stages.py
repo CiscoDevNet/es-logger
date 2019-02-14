@@ -16,7 +16,13 @@ class StageEvent(EventGenerator):
         return super(StageEvent, self).get_fields()
 
     def generate_events(self, esl):
+        """
+        return a list of objects to send as events
 
+        :param esl: the calling es_logger object
+        :type console_log: object
+        :returns: list(dict(str:?))
+        """
         LOGGER.debug("Starting: {}".format(type(self).__name__))
 
         output_list = []
