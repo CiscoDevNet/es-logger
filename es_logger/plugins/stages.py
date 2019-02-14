@@ -9,11 +9,11 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-class Stages(EventGenerator):
+class StageEvent(EventGenerator):
     """
     """
     def get_fields(self):
-        return super(Stages, self).get_fields()
+        return super(StageEvent, self).get_fields()
 
     def generate_events(self, esl):
 
