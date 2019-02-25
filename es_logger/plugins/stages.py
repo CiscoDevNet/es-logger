@@ -12,8 +12,11 @@ LOGGER = logging.getLogger(__name__)
 class StageEvent(EventGenerator):
     """
     """
+    def __init__(self):
+        super().__init__()
+
     def get_fields(self):
-        return super(StageEvent, self).get_fields()
+        return super().get_fields()
 
     def generate_events(self, esl):
         """
@@ -39,6 +42,3 @@ class StageEvent(EventGenerator):
 
         LOGGER.debug("Finished: {}".format(type(self).__name__))
         return output_list
-
-
-
