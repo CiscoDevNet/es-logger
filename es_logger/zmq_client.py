@@ -69,7 +69,7 @@ class ESLoggerZMQDaemon(object):
 
         if 'plugins' in config:
             process_console_logs = ' '.join(
-                es_logger.EsLogger.list_plugins(True, ['process_console_logs']))
+                es_logger.EsLogger.list_plugins(True, ['console_log_processor']))
             self.process_console_logs = config['plugins'].get('process_console_logs',
                                                               process_console_logs)
             gather_build_data = ' '.join(
