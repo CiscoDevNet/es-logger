@@ -80,11 +80,16 @@ class ESLoggerZMQDaemon(object):
             es_logger.EsLogger.list_plugins(True, ['console_log_processor']))
         self.process_console_logs = config['plugins'].get('process_console_logs',
                                                           console_log_processor)
+        logging.info("Using console_log_processor plugins: {}".format(self.process_console_logs))
+
         gather_build_data = ' '.join(
             es_logger.EsLogger.list_plugins(True, ['gather_build_data']))
         self.gather_build_data = config['plugins'].get('gather_build_data', gather_build_data)
+        logging.info("Using gather_build_data plugins: {}".format(self.gather_build_data))
+
         event_generator = ' '.join(es_logger.EsLogger.list_plugins(True, ['event_generator']))
         self.generate_events = config['plugins'].get('generate_events', event_generator)
+        logging.info("Using generate_events plugins: {}".format(self.generate_events))
 
         self.validate_config()
 
