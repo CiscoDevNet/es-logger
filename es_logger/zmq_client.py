@@ -67,21 +67,29 @@ class ESLoggerZMQDaemon(object):
             self.jenkins_user = config['jenkins'].get('jenkins_user')
             self.jenkins_password = config['jenkins'].get('jenkins_password')
 
-        if 'plugins' in config:
-            process_console_logs = ' '.join(
-                es_logger.EsLogger.list_plugins(True, ['process_console_logs']))
-            self.process_console_logs = config['plugins'].get('process_console_logs',
-                                                              process_console_logs)
-            gather_build_data = ' '.join(
-                es_logger.EsLogger.list_plugins(True, ['gather_build_data']))
-            self.gather_build_data = config['plugins'].get('gather_build_data', gather_build_data)
-            event_generator = ' '.join(es_logger.EsLogger.list_plugins(True, ['event_generator']))
-            self.generate_events = config['plugins'].get('generate_events', event_generator)
-
         if 'logstash' in config:
             self.logstash_server = config['logstash'].get('logstash_server')
             self.ls_user = config['logstash'].get('ls_user')
             self.ls_password = config['logstash'].get('ls_password')
+
+        # Set defaults plugins to all unless overridden
+        if 'plugins' not in config:
+            config['plugins'] = {}
+
+        console_log_processor = ' '.join(
+            es_logger.EsLogger.list_plugins(True, ['console_log_processor']))
+        self.process_console_logs = config['plugins'].get('process_console_logs',
+                                                          console_log_processor)
+        logging.info("Using console_log_processor plugins: {}".format(self.process_console_logs))
+
+        gather_build_data = ' '.join(
+            es_logger.EsLogger.list_plugins(True, ['gather_build_data']))
+        self.gather_build_data = config['plugins'].get('gather_build_data', gather_build_data)
+        logging.info("Using gather_build_data plugins: {}".format(self.gather_build_data))
+
+        event_generator = ' '.join(es_logger.EsLogger.list_plugins(True, ['event_generator']))
+        self.generate_events = config['plugins'].get('generate_events', event_generator)
+        logging.info("Using generate_events plugins: {}".format(self.generate_events))
 
         self.validate_config()
 

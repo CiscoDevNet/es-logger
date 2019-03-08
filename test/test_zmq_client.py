@@ -38,6 +38,7 @@ class TestZMQClient(object):
         '"the master Jenkins node",\\n        "host_name":"jenkins_url"}}\''
 
     def setup(self):
+        self.config_dict = {}
         self.zmqd = es_logger.zmq_client.ESLoggerZMQDaemon()
         self.zmqd.async_main_sleep = 5
         self.zmqd.worker_sleep = 5
@@ -88,6 +89,28 @@ class TestZMQClient(object):
             raise exception
         print(f"dummyTask {name} finishing")
         return return_status
+
+    # Test call flow with good options
+    def test_zmq_client_configure_default(self):
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            self.zmqd.configure()
+            es_logger_default = ' '.join(
+                es_logger.EsLogger.list_plugins(True, ['console_log_processor']))
+            nose.tools.ok_(self.zmqd.process_console_logs == es_logger_default,
+                           "{} did not match {}".format(self.zmqd.process_console_logs,
+                                                        es_logger_default))
+            es_logger_default = ' '.join(
+                es_logger.EsLogger.list_plugins(True, ['gather_build_data']))
+            nose.tools.ok_(self.zmqd.gather_build_data == es_logger_default,
+                           "{} did not match {}".format(self.zmqd.gather_build_data,
+                                                        es_logger_default))
+            es_logger_default = ' '.join(
+                es_logger.EsLogger.list_plugins(True, ['event_generator']))
+            nose.tools.ok_(self.zmqd.generate_events == es_logger_default,
+                           "{} did not match {}".format(self.zmqd.generate_events,
+                                                        es_logger_default))
 
     # Test call flow with good options
     def test_zmq_client_configure(self):
