@@ -121,6 +121,8 @@ class ESLoggerZMQDaemon(object):
         project = project.rstrip('/')
         # Ensure no job elements in path, as python-jenkins expects to add them
         project = '/'.join([p for p in project.split('/') if p != 'job'])
+        # Finally, unquote the string, as python-jenkins expects to url encode
+        project = urllib.parse.unquote(project)
         return project
 
     # Processing function to run es-logger
