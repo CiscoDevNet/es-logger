@@ -294,7 +294,7 @@ class EsLogger(object):
                 for param in action['parameters']:
                     try:
                         self.es_info.setdefault(
-                            'parameters', {})[param['name']] = param['value']
+                            'parameters', {})[param['name']] = str(param['value'])
                     except KeyError:
                         LOGGER.debug("KeyError on {}".format(param))
                         continue

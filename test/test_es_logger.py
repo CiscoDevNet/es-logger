@@ -168,7 +168,9 @@ class TestEsLogger(object):
                 'number': '1',
                 'url': 'url',
                 'actions': [{'_class': 'hudson.model.ParametersAction',
-                             'parameters': [{'name': 'param', 'value': 'value'}]},
+                             'parameters': [{'name': 'param', 'value': 'value'},
+                                            {'name': 'param1', 'value1': True},
+                                            {'name': 'param2', 'value2': 1}]},
                             {'_class': 'hudson.plugins.git.util.BuildData',
                              'buildsByBranchName': {'b1': {'buildNumber': '1'},
                                                     'b2': {'buildNumber': '2'}},
@@ -182,6 +184,10 @@ class TestEsLogger(object):
             # Parameters pulled out
             nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param1') == 'True',
+                           "Parameter 'param1' not 'True': {}".format(self.esl.es_info))
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param2') == '1',
+                           "Parameter 'param2' not '1': {}".format(self.esl.es_info))
             # Prevent ES field explosion through rewrite of builds by branch name
             nose.tools.ok_(
                 self.esl.es_info['build_info']['actions'][1]['buildsByBranchName'] ==
