@@ -158,7 +158,8 @@ class TestEsLogger(object):
         with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_env_vars') as mock_env_vars, \
-                unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_console:
+                unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_console, \
+                unittest.mock.patch('jenkins.Jenkins.get_job_config') as mock_config:
             mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '1',
                                                      'JOB_NAME': 'job_name',
                                                      'BUILD_URL': 'url',
@@ -169,15 +170,36 @@ class TestEsLogger(object):
                 'url': 'url',
                 'actions': [{'_class': 'hudson.model.ParametersAction',
                              'parameters': [{'name': 'param', 'value': 'value'},
-                                            {'name': 'param1', 'value1': True},
-                                            {'name': 'param2', 'value2': 1}]},
+                                            {'name': 'param1', 'value': True},
+                                            {'name': 'param2', 'value': 1}]},
                             {'_class': 'hudson.plugins.git.util.BuildData',
                              'buildsByBranchName': {'b1': {'buildNumber': '1'},
                                                     'b2': {'buildNumber': '2'}},
                              'remoteUrls': ["repoURL"]}]}
             mock_console.return_value = 'log'
+
+            config_xml = "<project></project>"
+            mock_config.return_value = config_xml
+
             self.esl.get_build_data()
             mock_driver_mgr.assert_called_once()
+
+            # Job Config recorded
+            nose.tools.ok_(self.esl.es_info['job_config'].get("job_config_xml") == config_xml,
+                           "job_config_xml not '{}': {}".format(
+                               "<project></project>",
+                               self.esl.es_info["job_config"]["job_config_xml"]))
+
+            # Noted that its not a pipeline job based on config
+            nose.tools.ok_(self.esl.es_info['job_config'].get("is_pipeline_job") == "False",
+                           "is_pipeline_job not 'False': {}".format(
+                               self.esl.es_info["job_config"]["is_pipeline_job"]))
+
+            # The job_config is on of length 2.
+            nose.tools.ok_(len(self.esl.es_info['job_config']) == 2,
+                           "job_config len isnt '2': {}".format(
+                               self.esl.es_info["job_config"]))
+
             # Console log recorded
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
                            "console_log not 'log': {}".format(self.esl.es_info))
@@ -201,6 +223,160 @@ class TestEsLogger(object):
             nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
                            "repoURL not in build_data keys: {}".format(
                                self.esl.es_info['build_data']))
+
+    def test_get_pipeline_job_info_not_pipeline(self):
+        test_result = self.esl.get_pipeline_job_info("<project></project>")
+
+        nose.tools.ok_(test_result == {"is_pipeline_job": "False"},
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, {"is_pipeline_job": "False"}))
+
+    def test_get_pipeline_job_info_unknown_pipeline(self):
+        unknown_pipeline_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <definition class="What is this?"></definition>
+            </flow-definition>"""
+        test_result = self.esl.get_pipeline_job_info(unknown_pipeline_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "Unknown"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
+
+    def test_get_pipeline_job_info_pipeline_script(self):
+        pipeline_script_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition"
+                        plugin="workflow-cps@2.46">
+                </definition>
+            </flow-definition>"""
+
+        test_result = self.esl.get_pipeline_job_info(pipeline_script_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "Script"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
+
+    def test_get_pipeline_job_info_pipeline_scm_not_git(self):
+        pipeline_scm_not_git_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition"
+                        plugin="workflow-cps@2.46">
+                    <scm class="Not Git" plugin="something else">
+                    </scm>
+                    <scriptPath>JenkinsfileName</scriptPath>
+                </definition>
+            </flow-definition>"""
+
+        test_result = self.esl.get_pipeline_job_info(pipeline_scm_not_git_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "SCM",
+                           "jenkinsfile": "JenkinsfileName"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
+
+    def test_get_pipeline_job_info_pipeline_scm_git(self):
+        pipeline_scm_git_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition"
+                        plugin="workflow-cps@2.46">
+                    <scm class="hudson.plugins.git.GitSCM" plugin="git@3.9.1">
+                        <userRemoteConfigs>
+                            <hudson.plugins.git.UserRemoteConfig>
+                                <url>git_repo_addr</url>
+                            </hudson.plugins.git.UserRemoteConfig>
+                        </userRemoteConfigs>
+                        <branches>
+                            <hudson.plugins.git.BranchSpec>
+                                <name>branch_string</name>
+                            </hudson.plugins.git.BranchSpec>
+                        </branches>
+                    </scm>
+                    <scriptPath>JenkinsfileName</scriptPath>
+                </definition>
+            </flow-definition>"""
+
+        test_result = self.esl.get_pipeline_job_info(pipeline_scm_git_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "SCM",
+                           "jenkinsfile": "JenkinsfileName",
+                           "git_repo": "git_repo_addr",
+                           "git_branch": "branch_string"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
+
+    def test_get_pipeline_job_info_pipeline_multibranch_no_git(self):
+        pipeline_multibranch_not_git_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <properties>
+                    <org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty
+                                   plugin="workflow-multibranch@2.20">
+                        <branch plugin="branch-api@2.0.20.1">
+                            <scm class="Not Git" plugin="something else">
+                            </scm>
+                        </branch>
+                    </org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty>
+                </properties>
+                <definition class="org.jenkinsci.plugins.workflow.multibranch.SCMBinder"
+                            plugin="workflow-multibranch@2.20">
+                    <scriptPath>JenkinsfileName</scriptPath>
+                </definition>
+            </flow-definition>"""
+
+        test_result = self.esl.get_pipeline_job_info(pipeline_multibranch_not_git_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "Multibranch",
+                           "jenkinsfile": "JenkinsfileName"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
+
+    def test_get_pipeline_job_info_pipeline_multibranch_git(self):
+        pipeline_multibranch_git_xml = """
+            <flow-definition plugin="workflow-job@2.29">
+                <properties>
+                    <org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty
+                                   plugin="workflow-multibranch@2.20">
+                        <branch plugin="branch-api@2.0.20.1">
+                            <scm class="hudson.plugins.git.GitSCM" plugin="git@3.9.3">
+                                <userRemoteConfigs>
+                                    <hudson.plugins.git.UserRemoteConfig>
+                                        <url>git_repo_addr</url>
+                                    </hudson.plugins.git.UserRemoteConfig>
+                                </userRemoteConfigs>
+                                <branches class="singleton-list">
+                                    <hudson.plugins.git.BranchSpec>
+                                        <name>branch_string</name>
+                                    </hudson.plugins.git.BranchSpec>
+                                </branches>
+                            </scm>
+                        </branch>
+                    </org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty>
+                </properties>
+                <definition class="org.jenkinsci.plugins.workflow.multibranch.SCMBinder"
+                            plugin="workflow-multibranch@2.20">
+                    <scriptPath>JenkinsfileName</scriptPath>
+                </definition>
+            </flow-definition>"""
+
+        test_result = self.esl.get_pipeline_job_info(pipeline_multibranch_git_xml)
+        expected_result = {"is_pipeline_job": "True",
+                           "pipeline_job_type": "Multibranch",
+                           "jenkinsfile": "JenkinsfileName",
+                           "git_repo": "git_repo_addr",
+                           "git_branch": "branch_string"}
+
+        nose.tools.ok_(test_result == expected_result,
+                       "get_pipeline_job_info, returned: {}, expected {}".format(
+                           test_result, expected_result))
 
     def test_process_build_info_actions_no_key_error(self):
         self.esl.es_info = {'build_info': {'actions': [

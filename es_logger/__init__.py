@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import requests
+import xml.etree.ElementTree as ET
 from stevedore import driver, ExtensionManager
 
 
@@ -264,6 +265,11 @@ class EsLogger(object):
                                                      depth=0)
         self.es_info['build_info'] = self.build_info
 
+        # Job Config (The raw job config and some pipeline job specific info)
+        self.job_info = self.get_job_config_data()
+
+        self.es_info['job_config'] = self.job_info
+
         # Environment Variables
         self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
         self.es_info['env_vars'] = self.env_vars
@@ -283,6 +289,62 @@ class EsLogger(object):
                     invoke_args=()
                 )
             self.es_info.setdefault('build_data', {})[plugin] = data.driver.gather(self)
+
+    # Job Config data
+    def get_job_config_data(self):
+        job_info = {}
+        job_xml = self.server.get_job_config(self.es_job_name)
+
+        # Store the raw.xml
+        job_info["job_config_xml"] = job_xml
+
+        # Attempt to interpret some pipeline job specifics from the xml
+        pipeline_job_info = self.get_pipeline_job_info(job_xml)
+
+        # Update the job info with the returned interpretations.
+        job_info.update(pipeline_job_info)
+
+        return job_info
+
+    # Get some more info for a pipeline job.
+    @staticmethod
+    def get_pipeline_job_info(job_xml):
+        xml_root = ET.fromstring(job_xml)
+        if xml_root.tag != "flow-definition":
+            return {"is_pipeline_job": "False"}
+
+        pipeline_types = {"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition": "Script",
+                          "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition": "SCM",
+                          "org.jenkinsci.plugins.workflow.multibranch.SCMBinder": "Multibranch"}
+        git_scm_plugin = "hudson.plugins.git.GitSCM"
+        pipeline_data = {"is_pipeline_job": "True"}
+
+        # Figure out what type of pipeline job this is.
+        try:
+            pipeline_type = pipeline_types[xml_root.find("./definition").attrib["class"]]
+            pipeline_data["pipeline_job_type"] = pipeline_type
+            LOGGER.debug("Pipeline Type is {}".format(pipeline_type))
+        except KeyError:
+            LOGGER.error("Pipeline Type not found.")
+            pipeline_data["pipeline_job_type"] = "Unknown"
+            return pipeline_data
+
+        # Interpret Git scm data
+        if pipeline_type in ["SCM", "Multibranch"]:
+            # Both SCM types will use a Jenkinsfile
+            pipeline_data["jenkinsfile"] = xml_root.find("./definition/scriptPath").text
+            # Get the git source details from the definition or properties xml tag
+            xml_tag = "./definition/" if pipeline_type == "SCM" else \
+                "./properties/org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty/branch/"
+            # Get the git properties if git is in use
+            if xml_root.find(xml_tag + "scm").attrib["class"] == git_scm_plugin:
+                pipeline_data["git_repo"] = xml_root.find(
+                    xml_tag + "scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url").text
+                pipeline_data["git_branch"] = xml_root.find(
+                    xml_tag + "scm/branches/hudson.plugins.git.BranchSpec/name").text
+            return pipeline_data
+        else:
+            return pipeline_data
 
     # Process Build Info
     def process_build_info(self):
