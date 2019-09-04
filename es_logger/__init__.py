@@ -263,7 +263,7 @@ class EsLogger(object):
         # Build Info (Parameters, Status)
         self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
                                                      depth=0)
-        # Job Config (The raw job config)
+        # Job Config (The raw job config and object)
         self.job_raw_xml = self.server.get_job_config(self.es_job_name)
         self.job_xml = ET.fromstring(self.job_raw_xml)
 
@@ -300,9 +300,8 @@ class EsLogger(object):
         pipeline_types = {"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition": "Script",
                           "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition": "SCM",
                           "org.jenkinsci.plugins.workflow.multibranch.SCMBinder": "Multibranch"}
-
-        # Figure out what type of pipeline job this is.
         try:
+            # Figure out what type of pipeline job this is.
             pipeline_type = pipeline_types[self.job_xml.find("./definition").attrib["class"]]
             LOGGER.debug("Pipeline Type is {}".format(pipeline_type))
         except KeyError:
