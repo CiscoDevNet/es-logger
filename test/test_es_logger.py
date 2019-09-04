@@ -12,6 +12,7 @@ import pkg_resources
 import requests
 from stevedore import ExtensionManager
 import unittest.mock
+import xml.etree.ElementTree as ET
 
 
 class TestEsLogger(object):
@@ -185,20 +186,15 @@ class TestEsLogger(object):
             mock_driver_mgr.assert_called_once()
 
             # Job Config recorded
-            nose.tools.ok_(self.esl.es_info['job_config'].get("job_config_xml") == config_xml,
-                           "job_config_xml not '{}': {}".format(
-                               "<project></project>",
-                               self.esl.es_info["job_config"]["job_config_xml"]))
+            nose.tools.ok_(self.esl.es_info['job_config_info'].get("is_pipeline_job") is False,
+                           "is_pipeline_job not '{}': {}".format(
+                               False,
+                               self.esl.es_info["job_config_info"]["is_pipeline_job"]))
 
-            # Noted that its not a pipeline job based on config
-            nose.tools.ok_(self.esl.es_info['job_config'].get("is_pipeline_job") == "False",
-                           "is_pipeline_job not 'False': {}".format(
-                               self.esl.es_info["job_config"]["is_pipeline_job"]))
-
-            # The job_config is on of length 2.
-            nose.tools.ok_(len(self.esl.es_info['job_config']) == 2,
-                           "job_config len isnt '2': {}".format(
-                               self.esl.es_info["job_config"]))
+            # The job_config is on of length 1.
+            nose.tools.ok_(len(self.esl.es_info['job_config_info']) == 1,
+                           "job_config_info len isn't '1': {}".format(
+                               self.esl.es_info["job_config_info"]))
 
             # Console log recorded
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
@@ -206,10 +202,7 @@ class TestEsLogger(object):
             # Parameters pulled out
             nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
-            nose.tools.ok_(self.esl.es_info['parameters'].get('param1') == 'True',
-                           "Parameter 'param1' not 'True': {}".format(self.esl.es_info))
-            nose.tools.ok_(self.esl.es_info['parameters'].get('param2') == '1',
-                           "Parameter 'param2' not '1': {}".format(self.esl.es_info))
+
             # Prevent ES field explosion through rewrite of builds by branch name
             nose.tools.ok_(
                 self.esl.es_info['build_info']['actions'][1]['buildsByBranchName'] ==
@@ -224,20 +217,119 @@ class TestEsLogger(object):
                            "repoURL not in build_data keys: {}".format(
                                self.esl.es_info['build_data']))
 
-    def test_get_pipeline_job_info_not_pipeline(self):
-        test_result = self.esl.get_pipeline_job_info("<project></project>")
+    def test_is_pipeline_job_is_pipeline(self):
+        with unittest.mock.patch('xml.etree.ElementTree') as mock_et:
+            mock_et.tag = "flow-definition"
+            self.esl.job_xml = mock_et
+            test_result = self.esl.is_pipeline_job()
 
-        nose.tools.ok_(test_result == {"is_pipeline_job": "False"},
+        nose.tools.ok_(test_result is True,
+                       "is_pipeline_job, returned: {}, expected {}".format(
+                           test_result, True))
+
+    def test_is_pipeline_job_not_pipeline(self):
+        with unittest.mock.patch('xml.etree.ElementTree') as mock_et:
+            mock_et.tag = "Random tag"
+            self.esl.job_xml = mock_et
+            test_result = self.esl.is_pipeline_job()
+
+        nose.tools.ok_(test_result is False,
+                       "is_pipeline_job, returned: {}, expected {}".format(
+                           test_result, False))
+
+    def test_get_pipeline_job_type_script(self):
+        with unittest.mock.patch('es_logger.EsLogger.is_pipeline_job') as mock_is_pipeline:
+            mock_is_pipeline.return_value = True
+
+            script = "org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition"
+
+            mock_job_xml = unittest.mock.MagicMock()
+            mock_job_xml.find.return_value.attrib.__getitem__.return_value = script
+            self.esl.job_xml = mock_job_xml
+
+            test_result = self.esl.get_pipeline_job_type()
+
+            mock_job_xml.find.assert_called_with("./definition")
+            nose.tools.ok_(test_result == "Script",
+                           "get_pipeline_job_type, returned: {}, expected {}".format(
+                               test_result, "Script"))
+
+    def test_get_pipeline_job_type_scm(self):
+        with unittest.mock.patch('es_logger.EsLogger.is_pipeline_job') as mock_is_pipeline:
+            mock_is_pipeline.return_value = True
+
+            scm = "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition"
+            mock_job_xml = unittest.mock.MagicMock()
+            mock_job_xml.find.return_value.attrib.__getitem__.return_value = scm
+            self.esl.job_xml = mock_job_xml
+
+            test_result = self.esl.get_pipeline_job_type()
+
+            mock_job_xml.find.assert_called_with("./definition")
+            nose.tools.ok_(test_result == "SCM",
+                           "get_pipeline_job_type, returned: {}, expected {}".format(
+                               test_result, "SCM"))
+
+    def test_get_pipeline_job_type_multibranch(self):
+        with unittest.mock.patch('es_logger.EsLogger.is_pipeline_job') as mock_is_pipeline:
+            mock_is_pipeline.return_value = True
+
+            multibranch = "org.jenkinsci.plugins.workflow.multibranch.SCMBinder"
+            mock_job_xml = unittest.mock.MagicMock()
+            mock_job_xml.find.return_value.attrib.__getitem__.return_value = multibranch
+            self.esl.job_xml = mock_job_xml
+
+            test_result = self.esl.get_pipeline_job_type()
+
+            mock_job_xml.find.assert_called_with("./definition")
+            nose.tools.ok_(test_result == "Multibranch",
+                           "get_pipeline_job_type, returned: {}, expected {}".format(
+                               test_result, "Multibranch"))
+
+    def test_get_pipeline_job_type_invalid(self):
+        with unittest.mock.patch('es_logger.EsLogger.is_pipeline_job') as mock_is_pipeline:
+            mock_is_pipeline.return_value = True
+
+            mock_job_xml = unittest.mock.MagicMock()
+            mock_job_xml.find.return_value.attrib.__getitem__.return_value = "blah"
+            self.esl.job_xml = mock_job_xml
+
+            test_result = self.esl.get_pipeline_job_type()
+            mock_job_xml.find.assert_called_with("./definition")
+            nose.tools.ok_(test_result == "Unknown",
+                           "get_pipeline_job_type, returned: {}, expected {}".format(
+                               test_result, "Unknown"))
+
+    def test_get_pipeline_job_type_not_pipeline_job(self):
+        with unittest.mock.patch('es_logger.EsLogger.is_pipeline_job') as mock_is_pipeline:
+            mock_is_pipeline.return_value = False
+
+            test_result = self.esl.get_pipeline_job_type()
+            nose.tools.ok_(test_result is None,
+                           "get_pipeline_job_type, returned: {}, expected {}".format(
+                               test_result, None))
+
+    def test_get_pipeline_job_info_not_pipeline(self):
+        test_mock = unittest.mock.Mock()
+        test_mock.tag = "Random tag"
+        self.esl.job_xml = test_mock
+
+        test_result = self.esl.get_pipeline_job_info()
+
+        nose.tools.ok_(test_result == {"is_pipeline_job": False},
                        "get_pipeline_job_info, returned: {}, expected {}".format(
-                           test_result, {"is_pipeline_job": "False"}))
+                           test_result, {"is_pipeline_job": False}))
 
     def test_get_pipeline_job_info_unknown_pipeline(self):
         unknown_pipeline_xml = """
             <flow-definition plugin="workflow-job@2.29">
                 <definition class="What is this?"></definition>
             </flow-definition>"""
-        test_result = self.esl.get_pipeline_job_info(unknown_pipeline_xml)
-        expected_result = {"is_pipeline_job": "True",
+        self.esl.job_xml = ET.fromstring(unknown_pipeline_xml)
+
+        test_result = self.esl.get_pipeline_job_info()
+
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "Unknown"}
 
         nose.tools.ok_(test_result == expected_result,
@@ -251,9 +343,10 @@ class TestEsLogger(object):
                         plugin="workflow-cps@2.46">
                 </definition>
             </flow-definition>"""
+        self.esl.job_xml = ET.fromstring(pipeline_script_xml)
 
-        test_result = self.esl.get_pipeline_job_info(pipeline_script_xml)
-        expected_result = {"is_pipeline_job": "True",
+        test_result = self.esl.get_pipeline_job_info()
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "Script"}
 
         nose.tools.ok_(test_result == expected_result,
@@ -270,9 +363,10 @@ class TestEsLogger(object):
                     <scriptPath>JenkinsfileName</scriptPath>
                 </definition>
             </flow-definition>"""
+        self.esl.job_xml = ET.fromstring(pipeline_scm_not_git_xml)
 
-        test_result = self.esl.get_pipeline_job_info(pipeline_scm_not_git_xml)
-        expected_result = {"is_pipeline_job": "True",
+        test_result = self.esl.get_pipeline_job_info()
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "SCM",
                            "jenkinsfile": "JenkinsfileName"}
 
@@ -300,9 +394,10 @@ class TestEsLogger(object):
                     <scriptPath>JenkinsfileName</scriptPath>
                 </definition>
             </flow-definition>"""
+        self.esl.job_xml = ET.fromstring(pipeline_scm_git_xml)
 
-        test_result = self.esl.get_pipeline_job_info(pipeline_scm_git_xml)
-        expected_result = {"is_pipeline_job": "True",
+        test_result = self.esl.get_pipeline_job_info()
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "SCM",
                            "jenkinsfile": "JenkinsfileName",
                            "git_repo": "git_repo_addr",
@@ -329,9 +424,10 @@ class TestEsLogger(object):
                     <scriptPath>JenkinsfileName</scriptPath>
                 </definition>
             </flow-definition>"""
+        self.esl.job_xml = ET.fromstring(pipeline_multibranch_not_git_xml)
 
-        test_result = self.esl.get_pipeline_job_info(pipeline_multibranch_not_git_xml)
-        expected_result = {"is_pipeline_job": "True",
+        test_result = self.esl.get_pipeline_job_info()
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "Multibranch",
                            "jenkinsfile": "JenkinsfileName"}
 
@@ -366,9 +462,10 @@ class TestEsLogger(object):
                     <scriptPath>JenkinsfileName</scriptPath>
                 </definition>
             </flow-definition>"""
+        self.esl.job_xml = ET.fromstring(pipeline_multibranch_git_xml)
 
-        test_result = self.esl.get_pipeline_job_info(pipeline_multibranch_git_xml)
-        expected_result = {"is_pipeline_job": "True",
+        test_result = self.esl.get_pipeline_job_info()
+        expected_result = {"is_pipeline_job": True,
                            "pipeline_job_type": "Multibranch",
                            "jenkinsfile": "JenkinsfileName",
                            "git_repo": "git_repo_addr",
