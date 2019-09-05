@@ -215,6 +215,65 @@ class TestEsLogger(object):
                            "repoURL not in build_data keys: {}".format(
                                self.esl.es_info['build_data']))
 
+    def test_get_build_data_config_error(self):
+        # Recreate the esl to validate parameters aren't set
+        with unittest.mock.patch.dict(
+                'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
+                               'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
+                               'ES_BUILD_NUMBER': '2', 'GATHER_BUILD_DATA': 'dummy'}):
+            self.esl = es_logger.EsLogger(1000, ['dummy'])
+        self.esl.es_build_number = '2'
+        with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr, \
+                unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info, \
+                unittest.mock.patch('jenkins.Jenkins.get_build_env_vars') as mock_env_vars, \
+                unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_console, \
+                unittest.mock.patch('jenkins.Jenkins.get_job_config') as mock_config:
+            mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '1',
+                                                     'JOB_NAME': 'job_name',
+                                                     'BUILD_URL': 'url',
+                                                     'dummy': 'dummy'}}
+            mock_build_info.return_value = {
+                'description': 'description',
+                'number': '1',
+                'url': 'url',
+                'actions': [{'_class': 'hudson.model.ParametersAction',
+                             'parameters': [{'name': 'param', 'value': 'value'}]},
+                            {'_class': 'hudson.plugins.git.util.BuildData',
+                             'buildsByBranchName': {'b1': {'buildNumber': '1'},
+                                                    'b2': {'buildNumber': '2'}},
+                             'remoteUrls': ["repoURL"]}]}
+            mock_console.return_value = 'log'
+            mock_config.side_effect = JenkinsException("Error from Jenkins Api")
+
+            self.esl.get_build_data()
+            mock_driver_mgr.assert_called_once()
+
+            # Job Config recorded
+            nose.tools.ok_('job_config_info' not in self.esl.es_info.keys(),
+                           "'job_config_info' is in '{}'".format(
+                               self.esl.es_info.keys()))
+
+            # Console log recorded
+            nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
+                           "console_log not 'log': {}".format(self.esl.es_info))
+            # Parameters pulled out
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
+                           "Parameter 'param' not 'value': {}".format(self.esl.es_info))
+
+            # Prevent ES field explosion through rewrite of builds by branch name
+            nose.tools.ok_(
+                self.esl.es_info['build_info']['actions'][1]['buildsByBranchName'] ==
+                'Removed by es-logger',
+                "buildsByBranchName not removed by es-logger: {}".format(self.esl.es_info))
+            # Make sure the gather of the gather_build_data plugins was called
+            nose.tools.ok_('dummy' in self.esl.es_info['build_data'].keys(),
+                           "dummy not in build_data keys: {}".format(
+                               self.esl.es_info))
+            # SCM correctly processed
+            nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
+                           "repoURL not in build_data keys: {}".format(
+                               self.esl.es_info['build_data']))
+
     def test_is_pipeline_job_is_pipeline(self):
         with unittest.mock.patch('xml.etree.ElementTree') as mock_et:
             mock_et.tag = "flow-definition"

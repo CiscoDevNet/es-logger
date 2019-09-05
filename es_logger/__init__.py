@@ -263,12 +263,16 @@ class EsLogger(object):
         # Build Info (Parameters, Status)
         self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
                                                      depth=0)
-        # Job Config (The raw job config and object)
-        self.job_raw_xml = self.server.get_job_config(self.es_job_name)
-        self.job_xml = ET.fromstring(self.job_raw_xml)
-
         self.es_info['build_info'] = self.build_info
-        self.es_info['job_config_info'] = self.get_pipeline_job_info()
+
+        try:
+            # Job Config (The raw job config and object)
+            self.job_raw_xml = self.server.get_job_config(self.es_job_name)
+            self.job_xml = ET.fromstring(self.job_raw_xml)
+            self.es_info['job_config_info'] = self.get_pipeline_job_info()
+        except jenkins.JenkinsException as jenkins_err:
+            LOGGER.error("JenkinsException when attempting to get job config: {}".format(
+                    jenkins_err))
 
         # Environment Variables
         self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
