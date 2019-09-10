@@ -300,10 +300,12 @@ class EsLogger(object):
             self.es_info.setdefault('build_data', {})[plugin] = data.driver.gather(self)
 
     def get_pipeline_job_type(self):
-        if self.job_xml is not None:
-            pipeline_types = {"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition": "Script",
-                              "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition": "SCM",
-                              "org.jenkinsci.plugins.workflow.multibranch.SCMBinder": "Multibranch"}
+        pipeline_types = {"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition": "Script",
+                          "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition": "SCM",
+                          "org.jenkinsci.plugins.workflow.multibranch.SCMBinder": "Multibranch"}
+        if self.job_xml is None:
+            pipeline_type = None
+        else:
             try:
                 # Figure out what type of pipeline job this is.
                 pipeline_type = pipeline_types[self.job_xml.find("./definition").attrib["class"]]
@@ -311,16 +313,18 @@ class EsLogger(object):
             except (KeyError, AttributeError):
                 LOGGER.error("Pipeline Type not found.")
                 pipeline_type = "Unknown"
-            return pipeline_type
+        return pipeline_type
 
     # Get some more info for a pipeline job.
     def get_pipeline_job_info(self):
-        if self.job_xml is not None:
-            if self.job_xml.tag != "flow-definition":
-                return {"is_pipeline_job": False}
-
+        pipeline_data = {}
+        if self.job_xml is None:
+            pipeline_data = {}
+        elif self.job_xml.tag != "flow-definition":
+            pipeline_data = {"is_pipeline_job": False}
+        else:
             # Store that this is a pipeline job and its type.
-            pipeline_data = {"is_pipeline_job": True}
+            pipeline_data["is_pipeline_job"] = True
             pipeline_data["pipeline_job_type"] = self.get_pipeline_job_type()
 
             # Check if its using git as the scm or not.
@@ -339,7 +343,8 @@ class EsLogger(object):
                         "hudson.plugins.git.UserRemoteConfig/url").text
                     pipeline_data["git_branch"] = self.job_xml.find(
                         xml_tag + "scm/branches/hudson.plugins.git.BranchSpec/name").text
-            return pipeline_data
+
+        return pipeline_data
 
     # Process Build Info
     def process_build_info(self):

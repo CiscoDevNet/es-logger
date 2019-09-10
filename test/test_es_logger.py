@@ -509,9 +509,9 @@ class TestEsLogger(object):
 
     def test_get_pipeline_job_info_config_xml_is_none(self):
         test_result = self.esl.get_pipeline_job_info()
-        nose.tools.ok_(test_result is None,
+        nose.tools.ok_(test_result == {},
                        "get_pipeline_job_info, returned: {}, expected {}".format(
-                           test_result, None))
+                           test_result, {}))
 
     def test_process_build_info_actions_no_key_error(self):
         self.esl.es_info = {'build_info': {'actions': [
