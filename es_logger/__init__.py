@@ -135,6 +135,9 @@ class EsLogger(object):
         self.es_info[self.data_name] = {}
         self.events = []
 
+        self.job_xml_raw = None
+        self.job_xml = None
+
         self.process_console_logs = []
         self.gather_build_data = []
         self.generate_events = []
@@ -263,12 +266,18 @@ class EsLogger(object):
         # Build Info (Parameters, Status)
         self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
                                                      depth=0)
-        # Job Config (The raw job config and object)
-        self.job_raw_xml = self.server.get_job_config(self.es_job_name)
-        self.job_xml = ET.fromstring(self.job_raw_xml)
-
         self.es_info['build_info'] = self.build_info
-        self.es_info['job_config_info'] = self.get_pipeline_job_info()
+
+        try:
+            self.job_xml_raw = self.server.get_job_config(self.es_job_name)
+        except jenkins.JenkinsException as jenkins_err:
+            LOGGER.error("JenkinsException when attempting to get job config: {}".format(
+                    jenkins_err))
+            self.es_info['job_config_info'] = "Unable to retrieve config.xml."
+
+        if self.job_xml_raw is not None:
+            self.job_xml = ET.fromstring(self.job_xml_raw)
+            self.es_info['job_config_info'] = self.get_pipeline_job_info()
 
         # Environment Variables
         self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
@@ -290,48 +299,51 @@ class EsLogger(object):
                 )
             self.es_info.setdefault('build_data', {})[plugin] = data.driver.gather(self)
 
-    # Is the job a Pipeline Job?
-    def is_pipeline_job(self):
-        return True if self.job_xml.tag == "flow-definition" else False
-
     def get_pipeline_job_type(self):
-        if not self.is_pipeline_job():
-            return None
         pipeline_types = {"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition": "Script",
                           "org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition": "SCM",
                           "org.jenkinsci.plugins.workflow.multibranch.SCMBinder": "Multibranch"}
-        try:
-            # Figure out what type of pipeline job this is.
-            pipeline_type = pipeline_types[self.job_xml.find("./definition").attrib["class"]]
-            LOGGER.debug("Pipeline Type is {}".format(pipeline_type))
-        except KeyError:
-            LOGGER.error("Pipeline Type not found.")
-            pipeline_type = "Unknown"
+        if self.job_xml is None:
+            pipeline_type = None
+        else:
+            try:
+                # Figure out what type of pipeline job this is.
+                pipeline_type = pipeline_types[self.job_xml.find("./definition").attrib["class"]]
+                LOGGER.debug("Pipeline Type is {}".format(pipeline_type))
+            except (KeyError, AttributeError):
+                LOGGER.error("Pipeline Type not found.")
+                pipeline_type = "Unknown"
         return pipeline_type
 
     # Get some more info for a pipeline job.
     def get_pipeline_job_info(self):
-        if not self.is_pipeline_job():
-            return {"is_pipeline_job": False}
+        pipeline_data = {}
+        if self.job_xml is None:
+            pipeline_data = {}
+        elif self.job_xml.tag != "flow-definition":
+            pipeline_data = {"is_pipeline_job": False}
+        else:
+            # Store that this is a pipeline job and its type.
+            pipeline_data["is_pipeline_job"] = True
+            pipeline_data["pipeline_job_type"] = self.get_pipeline_job_type()
 
-        # Store that this is a pipeline job and its type.
-        pipeline_data = {"is_pipeline_job": True}
-        pipeline_data["pipeline_job_type"] = self.get_pipeline_job_type()
+            # Check if its using git as the scm or not.
+            git_scm_plugin = "hudson.plugins.git.GitSCM"
+            if pipeline_data["pipeline_job_type"] in ["SCM", "Multibranch"]:
+                # Both SCM types will use a Jenkinsfile
+                pipeline_data["jenkinsfile"] = self.job_xml.find("./definition/scriptPath").text
+                # Get the git source details from the definition or properties xml tag
+                xml_tag = "./definition/" if pipeline_data["pipeline_job_type"] == "SCM" else \
+                    "./properties/org.jenkinsci.plugins.workflow.multibranch." + \
+                    "BranchJobProperty/branch/"
+                # Get the git properties if git is in use
+                if self.job_xml.find(xml_tag + "scm").attrib["class"] == git_scm_plugin:
+                    pipeline_data["git_repo"] = self.job_xml.find(
+                        xml_tag + "scm/userRemoteConfigs/" +
+                        "hudson.plugins.git.UserRemoteConfig/url").text
+                    pipeline_data["git_branch"] = self.job_xml.find(
+                        xml_tag + "scm/branches/hudson.plugins.git.BranchSpec/name").text
 
-        # Check if its using git as the scm or not.
-        git_scm_plugin = "hudson.plugins.git.GitSCM"
-        if pipeline_data["pipeline_job_type"] in ["SCM", "Multibranch"]:
-            # Both SCM types will use a Jenkinsfile
-            pipeline_data["jenkinsfile"] = self.job_xml.find("./definition/scriptPath").text
-            # Get the git source details from the definition or properties xml tag
-            xml_tag = "./definition/" if pipeline_data["pipeline_job_type"] == "SCM" else \
-                "./properties/org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty/branch/"
-            # Get the git properties if git is in use
-            if self.job_xml.find(xml_tag + "scm").attrib["class"] == git_scm_plugin:
-                pipeline_data["git_repo"] = self.job_xml.find(
-                    xml_tag + "scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url").text
-                pipeline_data["git_branch"] = self.job_xml.find(
-                    xml_tag + "scm/branches/hudson.plugins.git.BranchSpec/name").text
         return pipeline_data
 
     # Process Build Info
