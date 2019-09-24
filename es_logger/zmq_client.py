@@ -104,14 +104,15 @@ class ESLoggerZMQDaemon(object):
         # Iterate over the plugin configuration and set it in the environment
         for plugin in self.plugins.keys():
             for var in self.plugins[plugin].keys():
-                self.set_in_env(var.upper(), self.plugins[plugin][var])
+                self.set_in_env(var, self.plugins[plugin][var])
 
     # lower case var to upper case env var
     @staticmethod
     def set_in_env(var, val):
+        var_name = var.upper()
         if val is not None and val != '':
-            os.environ[var.upper()] = val
-            logging.debug('Setting env var {}'.format(var))
+            os.environ[var_name] = val
+            logging.debug('Setting env var {}'.format(var_name))
 
     # Check for plugin-specific configuration
     def get_plugin_config(self, plugin_type, plugin_list, config):
