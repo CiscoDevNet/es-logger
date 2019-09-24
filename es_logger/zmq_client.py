@@ -120,7 +120,6 @@ class ESLoggerZMQDaemon(object):
             if plugin_key in config:
                 self.plugins[plugin_key] = {}
                 for key in config[plugin_key]:
-                    logging.debug('Config {}'.format(config))
                     self.plugins[plugin_key][key] = config[plugin_key].get(key)
 
     # Make sure we are correctly configured
