@@ -82,18 +82,18 @@ class ESLoggerZMQDaemon(object):
         self.process_console_logs = config['plugins'].get('process_console_logs',
                                                           console_log_processor)
         logging.info("Using console_log_processor plugins: {}".format(self.process_console_logs))
-        self.get_plugin_config(self.process_console_logs, config)
+        self.get_plugin_config("process_console_logs", self.process_console_logs.split(" "), config)
 
         gather_build_data = ' '.join(
             es_logger.EsLogger.list_plugins(True, ['gather_build_data']))
         self.gather_build_data = config['plugins'].get('gather_build_data', gather_build_data)
         logging.info("Using gather_build_data plugins: {}".format(self.gather_build_data))
-        self.get_plugin_config(self.gather_build_data, config)
+        self.get_plugin_config("gather_build_data", self.gather_build_data.split(" "), config)
 
         event_generator = ' '.join(es_logger.EsLogger.list_plugins(True, ['event_generator']))
         self.generate_events = config['plugins'].get('generate_events', event_generator)
         logging.info("Using generate_events plugins: {}".format(self.generate_events))
-        self.get_plugin_config(self.event_generator, config)
+        self.get_plugin_config("generate_events", self.generate_events.split(" "), config)
 
         self.validate_config()
 
@@ -104,21 +104,24 @@ class ESLoggerZMQDaemon(object):
         # Iterate over the plugin configuration and set it in the environment
         for plugin in self.plugins.keys():
             for var in self.plugins[plugin].keys():
-                self.set_in_env(var, self.plugins[plugin][var])
+                self.set_in_env(var.upper(), self.plugins[plugin][var])
 
     # lower case var to upper case env var
+    @staticmethod
     def set_in_env(var, val):
         if val is not None and val != '':
             os.environ[var.upper()] = val
             logging.debug('Setting env var {}'.format(var))
 
     # Check for plugin-specific configuration
-    def get_plugin_config(self, plugin_list, config):
+    def get_plugin_config(self, plugin_type, plugin_list, config):
         for plugin in plugin_list:
-            if plugin in config:
-                self.plugins[plugin] = {}
-                for key in config[plugin]
-                    self.plugins[plugin][key] = config[plugin].get(key)
+            plugin_key = plugin_type + ":" + plugin
+            if plugin_key in config:
+                self.plugins[plugin_key] = {}
+                for key in config[plugin_key]:
+                    logging.debug('Config {}'.format(config))
+                    self.plugins[plugin_key][key] = config[plugin_key].get(key)
 
     # Make sure we are correctly configured
     def validate_config(self):
