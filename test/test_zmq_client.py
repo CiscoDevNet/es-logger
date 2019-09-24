@@ -80,6 +80,26 @@ class TestZMQClient(object):
         config['plugins']['gather_build_data'] = 'gather_build_data'
         config['plugins']['generate_events'] = 'generate_events'
 
+    def set_generate_events_plugin_config(self, config):
+        config['plugins']['generate_events'] = 'plugin-a pluginb'
+        config['generate_events:plugin-a'] = {}
+        config['generate_events:pluginb'] = {}
+        config['generate_events:plugin-a']["test-plugin-a_env1"] = "test-plugin-a_value1"
+        config['generate_events:plugin-a']["test-plugin-a_env2"] = "test-plugin-a_value2"
+        config['generate_events:pluginb']["test-pluginb_env1"] = "test-pluginb_value1"
+
+    def set_gather_build_data_plugin_config(self, config):
+        config['plugins']['gather_build_data'] = 'plugin'
+        config['gather_build_data:plugin'] = {}
+        config['gather_build_data:plugin']["test-plugin_env1"] = "test-plugin_value1"
+        config['gather_build_data:plugin']["test-plugin_env2"] = "test-plugin_value2"
+
+    def set_process_console_logs_plugin_config(self, config):
+        config['plugins']['process_console_logs'] = 'pluginA'
+        config['process_console_logs:pluginA'] = {}
+        config['process_console_logs:pluginA']["test-pluginA_env1"] = "test-pluginA_value1"
+        config['process_console_logs:pluginA']["test-pluginA_env2"] = "test-pluginA_value2"
+
     async def dummyTask(self, name, sleep=0, return_status=0, exception=None):
         print(f"I am dummyTask {name}")
         # Give 5 seconds to ensure the main loop drops into check status
@@ -111,6 +131,60 @@ class TestZMQClient(object):
             nose.tools.ok_(self.zmqd.generate_events == es_logger_default,
                            "{} did not match {}".format(self.zmqd.generate_events,
                                                         es_logger_default))
+
+    def test_zmq_client_configure_generate_events_plugin_config(self):
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            self.set_plugin_config(config)
+            self.set_generate_events_plugin_config(config)
+            self.zmqd.configure(config)
+            for key in self.zmqd.env_vars:
+                if hasattr(self.zmqd, key.lower()):
+                    nose.tools.ok_(os.environ[key] == getattr(self.zmqd, key.lower()))
+            for key in config['generate_events:plugin-a'].keys():
+                nose.tools.ok_(os.environ[key.upper()] == config['generate_events:plugin-a'][key],
+                               "Expected: {}, Actual: {}".format(
+                                   config['generate_events:plugin-a'][key],
+                                   os.environ[key.upper()]))
+            for key in config['generate_events:pluginb'].keys():
+                nose.tools.ok_(os.environ[key.upper()] == config['generate_events:pluginb'][key],
+                               "Expected: {}, Actual: {}".format(
+                                   config['generate_events:pluginb'][key],
+                                   os.environ[key.upper()]))
+
+    def test_zmq_client_configure_gather_build_data_plugin_config(self):
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            self.set_plugin_config(config)
+            self.set_gather_build_data_plugin_config(config)
+            self.zmqd.configure(config)
+            for key in self.zmqd.env_vars:
+                if hasattr(self.zmqd, key.lower()):
+                    nose.tools.ok_(os.environ[key] == getattr(self.zmqd, key.lower()))
+            for key in config['gather_build_data:plugin'].keys():
+                nose.tools.ok_(os.environ[key.upper()] == config['gather_build_data:plugin'][key],
+                               "Expected: {}, Actual: {}".format(
+                                   config['gather_build_data:plugin'][key],
+                                   os.environ[key.upper()]))
+
+    def test_zmq_client_configure_process_console_logs_plugin_config(self):
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            self.set_plugin_config(config)
+            self.set_process_console_logs_plugin_config(config)
+            self.zmqd.configure(config)
+            for key in self.zmqd.env_vars:
+                if hasattr(self.zmqd, key.lower()):
+                    nose.tools.ok_(os.environ[key] == getattr(self.zmqd, key.lower()))
+            for key in config['process_console_logs:pluginA'].keys():
+                nose.tools.ok_(
+                    os.environ[key.upper()] == config['process_console_logs:pluginA'][key],
+                    "Expected: {}, Actual: {}".format(
+                        config['process_console_logs:pluginA'][key],
+                        os.environ[key.upper()]))
 
     # Test call flow with good options
     def test_zmq_client_configure(self):
