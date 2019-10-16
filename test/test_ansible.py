@@ -9,6 +9,65 @@ import unittest.mock
 
 
 class TestAnsibleRecapEvent(object):
+    @nose.tools.raises(ValueError)
+    def test_ansible_bad_hosts(self):
+        eg = es_logger.plugins.ansible.AnsibleRecapEvent()
+        fields = eg.get_fields()
+        nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
+        esl = unittest.mock.MagicMock()
+        esl.console_log = '''
++ ansible-playbook command
+
+PLAY [Play 1] ******************************************************************
+
+TASK [Task 1] ******************************************************************
+Sunday 15 April 2018  11:36:41 +0000 (0:00:00.096)       0:00:00.096 **********
+ok: [host1 -> localhost]
+
+PLAY RECAP *********************************************************************
+
+host1 : ok=13  bad changed=3   unreachable=1    failed=0
+
+Sunday 15 April 2018  11:40:35 +0000 (0:00:03.299)       1:29:59.000 **********
+===============================================================================
+plays-in-role-1 : The first task performed ---------------------------- 161.34s
+'''
+        eg.generate_events(esl)
+
+    def test_ansible_strip_ansi_colour(self):
+        eg = es_logger.plugins.ansible.AnsibleRecapEvent()
+        fields = eg.get_fields()
+        nose.tools.ok_(fields == es_logger.interface.EventGenerator.DEFAULT_FIELDS)
+        esl = unittest.mock.MagicMock()
+        esl.console_log = '''
++ ansible-playbook command
+
+PLAY [Play 1] ******************************************************************
+
+TASK [Task 1] ******************************************************************
+Sunday 15 April 2018  11:36:41 +0000 (0:00:00.096)       0:00:00.096 **********
+ok: [host1 -> localhost]
+
+PLAY RECAP *********************************************************************
+host1 : \x1b[0;32mok=13  \x1b[0m \x1b[0;33mchanged=3   \x1b[0m unreachable=1    failed=0
+
+Sunday 15 April 2018  11:40:35 +0000 (0:00:03.299)       1:29:59.000 **********
+===============================================================================
+plays-in-role-1 : The first task performed ---------------------------- 161.34s
+'''
+        events = eg.generate_events(esl)
+        nose.tools.ok_(len(events) == 2,
+                       "Wrong number of events returned ({}): {}".format(len(events), events))
+        results = [
+            {'play': 'Play 1', 'host': 'host1', 'ok': 13, 'changed': 3, 'unreachable': 1,
+             'failed': 0},
+            {'play': 'Play 1', 'total': 5399.0, 'time_percentage': 2.9883311724393407,
+             'description': 'plays-in-role-1 : The first task performed', 'time': 161.34}]
+
+        for idx, event in enumerate(events):
+            nose.tools.ok_(event == results[idx],
+                           "Bad event[{}] returned: {}".format(idx, events))
+
     def test_ansible_recap_event(self):
         eg = es_logger.plugins.ansible.AnsibleRecapEvent()
         fields = eg.get_fields()

@@ -61,8 +61,12 @@ class AnsibleRecapEvent(EventGenerator):
         task_regex = re.compile(r'\s*(?P<task>.*?)\s+[-]*\s+(?P<time>[0-9.]+)s.*?\n', re.MULTILINE)
         host_regex = re.compile(r'\s*(?P<host>[^\s]*)\s*:\s*(?P<status>.*?)\s*\n', re.MULTILINE)
 
-        for recap_match in itertools.chain(recap_regex.finditer(esl.console_log),
-                                           profile_regex.finditer(esl.console_log)):
+        # Using coloured output can lead to ANSI escapes buried in the string
+        ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+        console_no_ansi = ansi_escape.sub('', esl.console_log)
+
+        for recap_match in itertools.chain(recap_regex.finditer(console_no_ansi),
+                                           profile_regex.finditer(console_no_ansi)):
             play = recap_match.group('play')
             if ':' in recap_match.group('total'):
                 parts = recap_match.group('total').split(':')
@@ -77,8 +81,13 @@ class AnsibleRecapEvent(EventGenerator):
                 add_event['play'] = play
                 add_event['host'] = host_match.group('host')
                 for status in host_match.group('status').split():
-                    string, count = status.split('=')
-                    add_event[string] = int(count)
+                    try:
+                        string, count = status.split('=')
+                        add_event[string] = int(count)
+                    except ValueError as e:
+                        LOGGER.error("Bad status match in hosts:\n{}".format(
+                                     recap_match.group('hosts')))
+                        raise(e)
                 output_list.append(add_event)
             # Process individual tasks
             for task_match in task_regex.finditer(recap_match.group('tasks')):
