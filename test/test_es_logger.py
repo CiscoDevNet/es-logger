@@ -36,56 +36,81 @@ class TestEsLogger(object):
         self.esl = es_logger.EsLogger(1000, ['dummy'])
         self.urls = {
             'get_build_env_vars': 'jenkins_url/job/job_name/1/injectedEnvVars/api/json?depth=1',
-            'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=1'}
+            'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=1',
+            'get_build_artifact': 'jenkins_url/job/job_name/1/artifact/1',
+            'get_build_stages': 'jenkins_url/job/job_name/1/wfapi/describe/'}
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+                           'get_build_stages'])
     def test_monkey_patch(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             self.esl.server.crumb = False
             mock_open.return_value = '{}'
             func = getattr(self.esl.server, param)
-            func('job_name', 1, 1)
+            if param == 'get_build_stages':
+                func('job_name', 1)
+            else:
+                func('job_name', 1, 1)
             request = mock_open.call_args[0][0]
             print("method: {} url: {} headers: {}".format(request.method, request.url,
                                                           request.headers))
             nose.tools.ok_(request.url == self.urls[param])
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+                           'get_build_stages'])
     def test_monkey_patch_missing(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             mock_open.return_value = None
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
-            nose.tools.assert_raises(JenkinsException,
-                                     func, 'job_name', 1)
+            if param == 'get_build_artifact':
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1, 1)
+            else:
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1)
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+                           'get_build_stages'])
     def test_monkey_patch_http(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             mock_open.side_effect = requests.exceptions.HTTPError('url', 'code', 'msg', 'hdrs',
                                                                   unittest.mock.MagicMock())
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
-            nose.tools.assert_raises(JenkinsException,
-                                     func, 'job_name', 1)
+            if param == 'get_build_artifact':
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1, 1)
+            else:
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1)
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+                           'get_build_stages'])
     def test_monkey_patch_value(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             mock_open.side_effect = ValueError()
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
-            nose.tools.assert_raises(JenkinsException,
-                                     func, 'job_name', 1)
+            if param == 'get_build_artifact':
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1, 1)
+            else:
+                nose.tools.assert_raises(JenkinsException,
+                                         func, 'job_name', 1)
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report'])
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+                           'get_build_stages'])
     def test_monkey_patch_not_found(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             mock_open.side_effect = NotFoundException()
             self.esl.server.crumb = False
             func = getattr(self.esl.server, param)
             ret = 'Return not set'
-            ret = func('job_name', 1)
+            if param == 'get_build_artifact':
+                ret = func('job_name', 1, 1)
+            else:
+                ret = func('job_name', 1)
             nose.tools.ok_(ret is None,
                            "Return not None: {}".format(ret))
 
@@ -597,6 +622,13 @@ class TestEsLogger(object):
             mock_get.assert_called_once()
         nose.tools.ok_(self.esl.es_info['test_report'] is not None,
                        "Test report is None: {}".format(self.esl.es_info['test_report']))
+
+    def test_get_stages(self):
+        with unittest.mock.patch('jenkins.Jenkins.get_build_stages') as mock_get:
+            self.esl.get_stages()
+            mock_get.assert_called_once()
+        nose.tools.ok_(self.esl.es_info['stages'] is not None,
+                       "Stages is None: {}".format(self.esl.es_info['stages']))
 
     def test_dump(self):
         with unittest.mock.patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:

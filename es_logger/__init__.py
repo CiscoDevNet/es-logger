@@ -111,6 +111,77 @@ def get_build_test_report(self, name, number, depth=0):
 
 
 jenkins.Jenkins.get_build_test_report = get_build_test_report
+
+
+# Get Artifact
+BUILD_ARTIFACT = '%(folder_url)sjob/%(short_name)s/%(number)d/artifact/%(artifact)s'
+
+
+def get_build_artifact(self, name, number, artifact):
+    """Get artifacts from job
+
+    :param name: Job name, ``str``
+    :param number: Build number, ``int``
+    :param artifact: Artifact relative path, ``str``
+    :returns: artifact to download, ``dict``
+    """
+    folder_url, short_name = self._get_job_folder(name)
+
+    try:
+        response = self.jenkins_open(requests.Request(
+                'GET', self._build_url(BUILD_ARTIFACT, locals())))
+
+        if response:
+            return json.loads(response)
+        else:
+            raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+    except requests.exceptions.HTTPError:
+        raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+    except ValueError:
+        raise jenkins.JenkinsException(
+                'Could not parse JSON info for job[%s] number[%d]' % (name, number))
+    except jenkins.NotFoundException as e:
+        # This can happen if the artifact is not found
+        print("Not retrieving artifact: %s" % e)
+        return None
+
+
+jenkins.Jenkins.get_build_artifact = get_build_artifact
+
+
+# Get Stages
+BUILD_STAGES = '%(folder_url)sjob/%(short_name)s/%(number)d/wfapi/describe/'
+
+
+def get_build_stages(self, name, number):
+    """Get stages info from job
+
+    :param name: Job name, ``str``
+    :param number: Build number, ``int``
+    :returns: dictionary of stages in the job, ``dict``
+    """
+    folder_url, short_name = self._get_job_folder(name)
+
+    try:
+        response = self.jenkins_open(requests.Request(
+                'GET', self._build_url(BUILD_STAGES, locals())))
+
+        if response:
+            return json.loads(response)
+        else:
+            raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+    except requests.exceptions.HTTPError:
+        raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+    except ValueError:
+        raise jenkins.JenkinsException(
+                'Could not parse JSON info for job[%s] number[%d]' % (name, number))
+    except jenkins.NotFoundException as e:
+        # This can happen if this isn't a stages/pipeline job
+        print("Not retrieving stages: %s" % e)
+        return None
+
+
+jenkins.Jenkins.get_build_stages = get_build_stages
 # End Monkey Patch
 
 LOGGER = logging.getLogger(__name__)
@@ -132,6 +203,7 @@ class EsLogger(object):
 
         self.es_info = {}
         self.es_info['test_report'] = None
+        self.es_info['stages'] = None
         self.es_info[self.data_name] = {}
         self.events = []
 
@@ -457,6 +529,12 @@ class EsLogger(object):
             self.es_info['test_report'] = self.server.get_build_test_report(
                 self.es_job_name, self.es_build_number)
         return self.es_info['test_report']
+
+    def get_stages(self):
+        if self.es_info['stages'] is None:
+            self.es_info['stages'] = self.server.get_build_stages(
+                self.es_job_name, self.es_build_number)
+        return self.es_info['stages']
 
     # Dump the string
     def dump(self, json_event):
