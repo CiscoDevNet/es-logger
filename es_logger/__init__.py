@@ -345,11 +345,13 @@ class EsLogger(object):
         except jenkins.JenkinsException as jenkins_err:
             LOGGER.error("JenkinsException when attempting to get job config: {}".format(
                     jenkins_err))
-            self.es_info['job_config_info'] = "Unable to retrieve config.xml."
+            self.es_info['job_config_info'] = None
+            self.es_info['job_config_info_status'] = "Unable to retrieve config.xml."
 
         if self.job_xml_raw is not None:
             self.job_xml = ET.fromstring(self.job_xml_raw)
             self.es_info['job_config_info'] = self.get_pipeline_job_info()
+            self.es_info['job_config_info_status'] = "Retrieved config.xml."
 
         # Environment Variables
         self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)

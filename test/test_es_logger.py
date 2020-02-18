@@ -273,12 +273,14 @@ class TestEsLogger(object):
             self.esl.get_build_data()
             mock_driver_mgr.assert_called_once()
 
-            # Job Config recorded
-            expetected_error_msg = "Unable to retrieve config.xml."
-            nose.tools.ok_(self.esl.es_info['job_config_info'] == expetected_error_msg,
+            # Job Config not recorded
+            expected_error_msg = "Unable to retrieve config.xml."
+            nose.tools.ok_(self.esl.es_info['job_config_info'] is None,
                            "'job_config_info' value {} not '{}'".format(
-                               self.esl.es_info['job_config_info'],
-                               expetected_error_msg))
+                               self.esl.es_info['job_config_info'], None))
+            nose.tools.ok_(self.esl.es_info['job_config_info_status'] == expected_error_msg,
+                           "'job_config_info_status' value {} not '{}'".format(
+                               self.esl.es_info['job_config_info_status'], expected_error_msg))
 
             # Console log recorded
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
