@@ -7,6 +7,7 @@ from ..interface import EventTarget
 import logging
 import os
 import requests
+import time
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +22,8 @@ class LogstashTarget(EventTarget):
         self.ls_user = None
         self.ls_password = None
         self.ls_session = None
+
+        self.timeout_sleep = 2
 
         # Where to send the json event
         self.logstash_server = self.get_logstash_server()
@@ -41,8 +44,21 @@ Logstash Target Environment Variables:
 
     # Post to ES
     def send_event(self, json_event):
-        session = self.get_session()
-        r = session.post(self.logstash_server, json=json_event)
+        # We see a lot of logstash timeout errors
+        post_attempts = 0
+        r = None
+        # If we successfully post, r becomes the response
+        while r is None:
+            try:
+                session = self.get_session()
+                r = session.post(self.logstash_server, json=json_event)
+            except requests.exceptions.ReadTimeout:
+                post_attempts = post_attempts + 1
+                LOGGER.warn("Setting session to None on post_attempt {}".format(post_attempts))
+                self.ls_session = None
+                if post_attempts >= 5:
+                    raise
+                time.sleep(self.timeout_sleep)
         LOGGER.debug("Posted event, result {}".format(r.ok))
         if r.ok:
             return 0
