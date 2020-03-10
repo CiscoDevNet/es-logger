@@ -6,6 +6,7 @@ __author__ = 'jonpsull'
 from es_logger.plugins.target import LogstashTarget
 import nose
 import os
+import requests
 import unittest.mock
 
 
@@ -24,25 +25,46 @@ class TestLogstashTarget(object):
         nose.tools.ok_(lt.get_ls_password() == os.getenv('LS_PASSWORD'))
 
     @unittest.mock.patch('requests.Session')
-    def test_get_session(self, session):
+    def test_get_session(self, mock_session):
         self.lt.get_session()
-        print(session.mock_calls)
+        print(mock_session.mock_calls)
         nose.tools.ok_(self.lt.ls_session is not None,
                        "Session is None: {}".format(self.lt.ls_session))
 
     @unittest.mock.patch('requests.Session')
-    def test_send_event_good(self, session):
-        session().post().ok = True
+    def test_send_event_good(self, mock_session):
+        mock_session().post().ok = True
         res = self.lt.send_event({"event": "event"})
         nose.tools.ok_(res == 0,
                        "res not 0: {}".format(res))
 
     @unittest.mock.patch('requests.Session')
-    def test_send_event_bad(self, session):
-        session().post().ok = False
+    def test_send_event_bad(self, mock_session):
+        mock_session().post().ok = False
         res = self.lt.send_event({"event": "event"})
         nose.tools.ok_(res == 1,
                        "res not 1: {}".format(res))
+
+    @unittest.mock.patch('requests.Session')
+    def test_send_event_bad_session(self, mock_session):
+        mock_session().post.side_effect = requests.exceptions.ReadTimeout
+        self.lt.timeout_sleep = 0
+        nose.tools.assert_raises(requests.exceptions.ReadTimeout,
+                                 self.lt.send_event, {"event": "event"})
+        # We should see this created and called 5 times attempting to get post finished
+        calls = [unittest.mock.call(),
+                 unittest.mock.call(),
+                 unittest.mock.call().post(None, json={'event': 'event'}),
+                 unittest.mock.call(),
+                 unittest.mock.call().post(None, json={'event': 'event'}),
+                 unittest.mock.call(),
+                 unittest.mock.call().post(None, json={'event': 'event'}),
+                 unittest.mock.call(),
+                 unittest.mock.call().post(None, json={'event': 'event'}),
+                 unittest.mock.call(),
+                 unittest.mock.call().post(None, json={'event': 'event'})]
+        print(mock_session.mock_calls)
+        nose.tools.ok_(mock_session.mock_calls == calls)
 
     def test_validate(self):
         ret = self.lt.validate()
