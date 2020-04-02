@@ -222,6 +222,18 @@ class TestEsLogger(object):
             # Console log recorded
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
                            "console_log not 'log': {}".format(self.esl.es_info))
+            # Console log length recorded
+            nose.tools.ok_(self.esl.es_info['console_log_length'] == 3,
+                           "console_log length not 3: {}".format(self.esl.es_info))
+
+            # ID info pulled into eslogger namespace
+            eslogger_vars = {'job_name': 'es_job_name',
+                             'jenkins_url': 'jenkins_url',
+                             'build_number': '2'}
+            for k, v in eslogger_vars.items():
+                nose.tools.ok_(self.esl.es_info['eslogger'][k] == v,
+                               "{} not {}: {}".format(k, v, self.esl.es_info))
+
             # Parameters pulled out
             nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
