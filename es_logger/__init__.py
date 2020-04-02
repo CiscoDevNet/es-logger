@@ -334,6 +334,7 @@ class EsLogger(object):
         # Add the base info we have
         self.es_info[self.data_name]['job_name'] = self.es_job_name
         self.es_info[self.data_name]['jenkins_url'] = self.jenkins_url
+        self.es_info[self.data_name]['build_number'] = self.es_build_number
 
         # Build Info (Parameters, Status)
         self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
@@ -467,10 +468,13 @@ class EsLogger(object):
         # Max length for an indexed field is 32766, if longer, reduce
         # Default value in args parsing is 32500,
         # as when using larger values saw failures (not sure why)
-        if len(self.console_log) > self.console_length:
+        console_log_length = len(self.console_log)
+        if console_log_length > self.console_length:
             self.es_info['console_log'] = self.console_log[-self.console_length:]
         else:
             self.es_info['console_log'] = self.console_log
+        # Add the length of the console log
+        self.es_info['console_log_length'] = console_log_length
 
     def get_event_info(self, fields):
         event_info = {'build_info': {}}
