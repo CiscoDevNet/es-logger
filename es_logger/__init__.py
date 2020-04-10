@@ -265,7 +265,7 @@ class EsLogger(object):
     def get_process_console_logs(self):
         if not self.process_console_logs:
             process_console_logs = os.environ.get('PROCESS_CONSOLE_LOGS')
-            if process_console_logs is None:
+            if process_console_logs in [None, '']:
                 self.process_console_logs = []
             else:
                 self.process_console_logs = process_console_logs.split(' ')
@@ -274,7 +274,7 @@ class EsLogger(object):
     def get_gather_build_data(self):
         if not self.gather_build_data:
             gather_build_data = os.environ.get('GATHER_BUILD_DATA')
-            if gather_build_data is None:
+            if gather_build_data in [None, '']:
                 self.gather_build_data = []
             else:
                 self.gather_build_data = gather_build_data.split(' ')
@@ -283,7 +283,7 @@ class EsLogger(object):
     def get_generate_events(self):
         if not self.generate_events:
             generate_events = os.environ.get('GENERATE_EVENTS')
-            if generate_events is None:
+            if generate_events in [None, '']:
                 self.generate_events = []
             else:
                 self.generate_events = generate_events.split(' ')
