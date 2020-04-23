@@ -35,13 +35,10 @@ class TestEsLogger(object):
 
         self.esl = es_logger.EsLogger(1000, ['dummy'])
         self.urls = {
-            'get_build_env_vars': 'jenkins_url/job/job_name/1/injectedEnvVars/api/json?depth=1',
-            'get_build_test_report': 'jenkins_url/job/job_name/1/testReport/api/json?depth=1',
             'get_build_artifact': 'jenkins_url/job/job_name/1/artifact/1',
             'get_build_stages': 'jenkins_url/job/job_name/1/wfapi/describe/'}
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
-                           'get_build_stages'])
+    @parameterized.expand(['get_build_artifact', 'get_build_stages'])
     def test_monkey_patch(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
             self.esl.server.crumb = False
