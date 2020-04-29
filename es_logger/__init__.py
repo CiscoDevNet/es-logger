@@ -9,6 +9,7 @@ import jenkins
 import json
 import logging
 import os
+import re
 import requests
 from stevedore import driver, ExtensionManager
 import xml.etree.ElementTree as ET
@@ -352,8 +353,24 @@ class EsLogger(object):
 
     # Process Console Log
     def process_console_log(self):
-        self.console_log = self.server.get_build_console_output(self.es_job_name,
-                                                                self.es_build_number)
+        self.console_log_ts = self.server.get_build_console_output(self.es_job_name,
+                                                                   self.es_build_number)
+        # Because of timestamper 1.9+
+        # https://issues.jenkins-ci.org/browse/JENKINS-48344
+        # if the line starts with the timestamp, strip it
+        # [2020-04-22T11:21:48.848Z] console log
+        all_lines = []
+        time_re = re.compile(
+                r'(^\[[0-9]{4}-[0-9]{2}-[0-9]{2}' +                 # Date: '[2020-04-22'
+                r'T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z\]\s)' +    # Time: 'T11:21:48.848Z] '
+                r'(.*$)')                                           # Actual console log line
+        for line in self.console_log_ts.splitlines():
+            mo = time_re.match(line)
+            if mo:
+                all_lines.append(mo.group(2))
+            else:
+                all_lines.append(line)
+        self.console_log = "\n".join(all_lines)
 
         # Add plugin loading and processing with an array of plugins
         # e.g. - count errors, count warnings, parse test results, etc.
