@@ -562,11 +562,11 @@ class TestEsLogger(object):
         self.esl.process_console_logs = ['dummy']
         with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr:
             with unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_get:
-                mock_get.return_value = 'log'
+                mock_get.return_value = 'log\n[2020-04-22T11:21:48.848Z] log2 words\nlog3'
                 self.esl.process_console_log()
                 mock_driver_mgr.assert_called_once()
                 self.esl.console_length = 1
-                mock_get.return_value = 'log'
+                mock_get.return_value = 'log\nlog2 words\nlog3'
                 self.esl.process_console_log()
                 nose.tools.ok_(len(self.esl.es_info['console_log']) == 1,
                                "Console log length not 1: {}".format(
