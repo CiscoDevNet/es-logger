@@ -666,3 +666,32 @@ class TestEsLogger(object):
         self.esl.targets = [mock_target, mock_target]
         status = self.esl.finish()
         nose.tools.ok_(status == 2)
+
+    @parameterized.expand(['get_build_data', 'process_console_log', 'get_test_report',
+                           'get_stages'])
+    def test_exception_wraps(self, param):
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
+            mock_open.return_value = None
+            self.esl.server.crumb = False
+            func = getattr(self.esl, param)
+            nose.tools.assert_raises(es_logger.JenkinsCollectError, func)
+
+    # Needs a slightly different flow because 2nd call in the get_build_data function
+    # Although the same outcome, ensures coverage, so is testing the right spot
+    def test_exception_wraps_get_build_data(self):
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open, \
+                unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info:
+            mock_build_info.return_value = {}
+            mock_open.return_value = None
+            self.esl.server.crumb = False
+            nose.tools.assert_raises(es_logger.JenkinsCollectError, self.esl.get_build_data)
+
+    # Needs a slightly different flow because get_job_config needs to throw a non-Jenkins error
+    # Although the same outcome, ensures coverage, so is testing the right spot
+    def test_exception_wraps_get_job_config(self):
+        with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open, \
+                unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info:
+            mock_build_info.return_value = {}
+            mock_open.side_effect = Exception("Wrap me")
+            self.esl.server.crumb = False
+            nose.tools.assert_raises(es_logger.JenkinsCollectError, self.esl.get_build_data)
