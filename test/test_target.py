@@ -3,7 +3,7 @@
 
 __author__ = 'jonpsull'
 
-from es_logger.plugins.target import LogstashTarget
+from es_logger.plugins.target import LogstashPostError, LogstashTarget
 import nose
 import os
 import requests
@@ -49,8 +49,7 @@ class TestLogstashTarget(object):
     def test_send_event_bad_session(self, mock_session):
         mock_session().post.side_effect = requests.exceptions.ReadTimeout
         self.lt.timeout_sleep = 0
-        nose.tools.assert_raises(requests.exceptions.ReadTimeout,
-                                 self.lt.send_event, {"event": "event"})
+        nose.tools.assert_raises(LogstashPostError, self.lt.send_event, {"event": "event"})
         # We should see this created and called 5 times attempting to get post finished
         calls = [unittest.mock.call(),
                  unittest.mock.call(),
@@ -65,6 +64,12 @@ class TestLogstashTarget(object):
                  unittest.mock.call().post(None, json={'event': 'event'})]
         print(mock_session.mock_calls)
         nose.tools.ok_(mock_session.mock_calls == calls)
+
+    @unittest.mock.patch('requests.Session')
+    def test_send_event_bad_post(self, mock_session):
+        mock_session().post.side_effect = Exception
+        self.lt.timeout_sleep = 0
+        nose.tools.assert_raises(LogstashPostError, self.lt.send_event, {"event": "event"})
 
     def test_validate(self):
         ret = self.lt.validate()
