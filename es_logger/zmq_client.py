@@ -5,6 +5,7 @@
 
 __author__ = 'jonpsull'
 
+import argparse
 import asyncio
 import configparser
 import es_logger
@@ -41,7 +42,7 @@ class ZMQClientMisconfiguration(ZMQClientError):
 
 # Class for running es-logger as Jenkins ZMQ listener
 class ESLoggerZMQDaemon(object):
-    def __init__(self):
+    def __init__(self, args):
         self.listener = None
         self.tasks = []
         self.env_vars = ['JENKINS_URL', 'JENKINS_USER', 'JENKINS_PASSWORD', 'PROCESS_CONSOLE_LOGS',
@@ -52,6 +53,7 @@ class ESLoggerZMQDaemon(object):
         self.generate_events = ''
         self.async_main_sleep = 30
         self.worker_sleep = 15
+        self.test_zmq = args.test_zmq
 
     # Read the configuration
     def configure(self, config_file='es-logger.ini'):
@@ -149,6 +151,15 @@ class ESLoggerZMQDaemon(object):
         project = urllib.parse.unquote(project)
         return project
 
+    # Processing function to validate ZMQ connection
+    def test_zmq_task(self, msg):
+        var = json.loads(''.join(msg[0].decode("utf-8").split()[1:]))
+        job = self.get_project_name(var['url'])
+        number = var['build'].get('number')
+        phase = var['build'].get('phase')
+        logging.info(f'Got event: job [{job}] number [{number}] phase [{phase}]')
+        return 0
+
     # Processing function to run es-logger
     def es_logger_task(self, msg):
         var = json.loads(''.join(msg[0].decode("utf-8").split()[1:]))
@@ -156,29 +167,29 @@ class ESLoggerZMQDaemon(object):
         if phase == 'FINISHED':
             job = self.get_project_name(var['url'])
             number = var['build'].get('number')
-            logging.debug("Process {} number {} on {}".format(job, number, self.jenkins_url))
+            logging.info("Process {} number {} on {}".format(job, number, self.jenkins_url))
             # Create and configure the ES-Logger instance
             esl = es_logger.EsLogger(console_length=32500, targets=['logstash'])
             esl.es_job_name = job
             esl.es_build_number = int(number)
             esl.gather_all()
             status = esl.post_all()
-            logging.debug("{} number {} status {}".format(job, number, status))
+            logging.info("{} number {} status {}".format(job, number, status))
         else:
             logging.debug('Not collecting from job in phase {}'.format(phase))
             status = None
         return status
 
     # Worker to pull tasks off queue, process message, and execute
-    async def worker(self, name):
+    async def worker(self, name, process_func):
         logging.info("{} Starting".format(name))
         current_task = asyncio.current_task()
         while not current_task.done():
             try:
                 logging.debug("{} waiting for work".format(name))
                 msg = await asyncio.wait_for(self.queue.get(), self.worker_sleep)
-                logging.info("{} processing msg {}".format(name, msg))
-                result = self.es_logger_task(msg)
+                logging.debug("{} processing msg {}".format(name, msg))
+                result = getattr(self, process_func)(msg)
                 self.queue.task_done()
                 logging.debug("{} result {}".format(name, result))
             except asyncio.TimeoutError:
@@ -191,18 +202,20 @@ class ESLoggerZMQDaemon(object):
 
     # Drain the queue to enable clean shutdown
     async def drain_queue(self):
-        logging.info("Draining queue")
         status_list = []
+        qsize = self.queue.qsize()
+        processed = 0
+        logging.info("Draining queue of size {}".format(qsize))
         while self.queue.qsize() != 0:
-            logging.debug("Queue of size {}".format(self.queue.qsize()))
             msg = self.queue.get_nowait()
-            logging.info("Processing msg {}".format(msg))
+            logging.debug("Processing msg {}".format(msg))
             result = self.es_logger_task(msg)
             self.queue.task_done()
             logging.debug("Result {}".format(result))
             if result is not None:
                 status_list.append(result)
-        logging.info("Queue drained, size {}".format(self.queue.qsize()))
+            processed += 1
+        logging.info("Queue drained, processed {}".format(processed))
         return status_list
 
     # Connection function executed as listener task
@@ -240,10 +253,14 @@ class ESLoggerZMQDaemon(object):
         self.listener = asyncio.create_task(self.recv())
         # Create worker tasks to process the queue concurrently.
         self.tasks = []
+        if self.test_zmq:
+            process_func = 'test_zmq_task'
+        else:
+            process_func = 'es_logger_task'
         for i in range(self.num_workers):
-            task = asyncio.create_task(self.worker(f'worker-{i}'))
+            task = asyncio.create_task(self.worker(f'worker-{i}', process_func))
             self.tasks.append(task)
-        logging.info(f'Started {self.num_workers} workers')
+        logging.info(f'Started {self.num_workers} workers using {process_func}')
 
     # Cancel the threads for stopping
     def stop(self):
@@ -336,9 +353,26 @@ class ESLoggerZMQDaemon(object):
         return status
 
 
+# Argument parsing shouldn't need coverage, just effects of flags elsewhere
+def parse_args():  # pragma: no cover
+    desc = '''
+Run a ZMQ subscription to connect to the Jenkins Event Publisher (via ZMQ PUB SUB) plugin.
+https://plugins.jenkins.io/zmq-event-publisher/
+'''
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description=desc)
+    parser.add_argument('-t', '--test-zmq', action='store_true',
+                        help='Print details instead of processing with es-logger.')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Print debug logs to console during execution')
+    args = parser.parse_args()
+    return args
+
+
 # Shouldn't need individual unit testing, keep as simple as possible
 def main():  # pragma: no cover
-    configure_logging()
-    d = ESLoggerZMQDaemon()
+    args = parse_args()
+    configure_logging(args.debug)
+    d = ESLoggerZMQDaemon(args)
     status = d.main()
     sys.exit(status)

@@ -39,7 +39,10 @@ class TestZMQClient(object):
 
     def setup(self):
         self.config_dict = {}
-        self.zmqd = es_logger.zmq_client.ESLoggerZMQDaemon()
+        args = unittest.mock.MagicMock()
+        args.debug = False
+        args.test_zmq = True
+        self.zmqd = es_logger.zmq_client.ESLoggerZMQDaemon(args)
         self.zmqd.async_main_sleep = 5
         self.zmqd.worker_sleep = 5
         self.loop = asyncio.new_event_loop()
@@ -199,11 +202,20 @@ class TestZMQClient(object):
 
     @nose.tools.raises(es_logger.zmq_client.ZMQClientMisconfiguration)
     def test_zmq_missing_config(self):
-        es_logger.zmq_client.ESLoggerZMQDaemon().configure()
+        mock_args = unittest.mock.MagicMock()
+        mock_args.test_zmq = False
+        es_logger.zmq_client.ESLoggerZMQDaemon(mock_args).configure()
 
     def test_get_project_name(self):
         project = es_logger.zmq_client.ESLoggerZMQDaemon.get_project_name("//job/foo/job/bar/")
         nose.tools.ok_(project == '/foo/bar')
+
+    def test_test_zmq_task(self):
+        with nose.tools.assert_logs(level='DEBUG') as cm:
+            self.zmqd.test_zmq_task([self.sample_finished_message])
+        nose.tools.assert_equal(
+            cm.output,
+            ['INFO:root:Got event: job [folder/sample-job] number [123] phase [FINISHED]'])
 
     @unittest.mock.patch('es_logger.EsLogger', autospec=True)
     def test_es_logger_task(self, mock_esl):
@@ -213,9 +225,9 @@ class TestZMQClient(object):
         with nose.tools.assert_logs(level='DEBUG') as cm:
             self.zmqd.es_logger_task([self.sample_finished_message])
         nose.tools.assert_equal(cm.output,
-                                ['DEBUG:root:Process folder/sample-job number 123 on ' +
+                                ['INFO:root:Process folder/sample-job number 123 on ' +
                                  'https://joc.example.com/jenkins/jenkins_url',
-                                 'DEBUG:root:folder/sample-job number 123 status 0'])
+                                 'INFO:root:folder/sample-job number 123 status 0'])
         esl_calls = [unittest.mock.call().gather_all(),
                      unittest.mock.call().post_all()]
         nose.tools.assert_equals(mock_esl.method_calls, esl_calls)
@@ -238,12 +250,13 @@ class TestZMQClient(object):
         nose.tools.ok_(self.zmqd.queue.qsize() == 0)
         nose.tools.ok_(status_list == [0])
         self.zmqd.es_logger_task.assert_called_with(self.sample_finished_message)
+        print(cm.output)
         nose.tools.assert_equal(
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:worker-1 Starting',
              'DEBUG:root:worker-1 waiting for work',
-             'INFO:root:worker-1 processing msg ' + self.sample_finished_message_log,
+             'DEBUG:root:worker-1 processing msg ' + self.sample_finished_message_log,
              'DEBUG:root:worker-1 result 0',
              'DEBUG:root:worker-1 waiting for work',
              'INFO:root:worker-1 cancelled, finishing',
@@ -253,7 +266,7 @@ class TestZMQClient(object):
         self.zmqd.queue = asyncio.Queue()
         self.zmqd.es_logger_task = unittest.mock.MagicMock()
         self.zmqd.es_logger_task.return_value = 0
-        task = asyncio.create_task(self.zmqd.worker(f'worker-1'))
+        task = asyncio.create_task(self.zmqd.worker('worker-1', 'es_logger_task'))
         self.zmqd.queue.put_nowait(self.sample_finished_message)
         # Yield control to the worker task
         await asyncio.sleep(1)
@@ -278,7 +291,7 @@ class TestZMQClient(object):
 
     async def async_worker_timeout(self):
         self.zmqd.queue = asyncio.Queue()
-        task = asyncio.create_task(self.zmqd.worker(f'worker-1'))
+        task = asyncio.create_task(self.zmqd.worker('worker-1', 'test_zmq_task'))
         # Yield control to the worker task
         await asyncio.sleep(self.zmqd.worker_sleep + 1)
         # Cancel the worker
@@ -292,17 +305,16 @@ class TestZMQClient(object):
         calls = [unittest.mock.call(self.sample_completed_message),
                  unittest.mock.call(self.sample_finished_message)]
         self.zmqd.es_logger_task.assert_has_calls(calls)
+        print(cm.output)
         nose.tools.assert_equal(
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
-             'INFO:root:Draining queue',
-             'DEBUG:root:Queue of size 2',
-             'INFO:root:Processing msg ' + self.sample_completed_message_log,
+             'INFO:root:Draining queue of size 2',
+             'DEBUG:root:Processing msg ' + self.sample_completed_message_log,
              'DEBUG:root:Result None',
-             'DEBUG:root:Queue of size 1',
-             'INFO:root:Processing msg ' + self.sample_finished_message_log,
+             'DEBUG:root:Processing msg ' + self.sample_finished_message_log,
              'DEBUG:root:Result 0',
-             'INFO:root:Queue drained, size 0'])
+             'INFO:root:Queue drained, processed 2'])
 
     async def async_drain_queue(self):
         self.zmqd.es_logger_task = unittest.mock.MagicMock()
@@ -349,7 +361,7 @@ class TestZMQClient(object):
         listener.cancel()
         return listener
 
-    def test_start(self):
+    def test_test_zmq_start(self):
         dummy_task = unittest.mock.MagicMock()
         dummy_task.return_value = self.dummyTask(0)
         self.zmqd.recv = dummy_task
@@ -361,7 +373,24 @@ class TestZMQClient(object):
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Starting',
-             'INFO:root:Started 2 workers'])
+             'INFO:root:Started 2 workers using test_zmq_task'])
+        nose.tools.ok_(len(self.zmqd.tasks) == 2)
+        nose.tools.ok_(self.zmqd.listener)
+
+    def test_es_logger_start(self):
+        dummy_task = unittest.mock.MagicMock()
+        dummy_task.return_value = self.dummyTask(0)
+        self.zmqd.recv = dummy_task
+        self.zmqd.worker = dummy_task
+        self.zmqd.num_workers = 2
+        self.zmqd.test_zmq = False
+        with nose.tools.assert_logs(level='DEBUG') as cm:
+            asyncio.run(self.async_start())
+        nose.tools.assert_equal(
+            cm.output,
+            ['DEBUG:asyncio:Using selector: EpollSelector',
+             'INFO:root:Starting',
+             'INFO:root:Started 2 workers using es_logger_task'])
         nose.tools.ok_(len(self.zmqd.tasks) == 2)
         nose.tools.ok_(self.zmqd.listener)
 
@@ -442,8 +471,8 @@ class TestZMQClient(object):
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Started tasks, entering status check loop',
              'INFO:root:Exited status check loop',
-             'INFO:root:Draining queue',
-             'INFO:root:Queue drained, size 0',
+             'INFO:root:Draining queue of size 0',
+             'INFO:root:Queue drained, processed 0',
              'INFO:root:Gathering task statuses'])
         nose.tools.ok_(status == 0)
 
@@ -462,8 +491,8 @@ class TestZMQClient(object):
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Started tasks, entering status check loop',
              'INFO:root:Exited status check loop',
-             'INFO:root:Draining queue',
-             'INFO:root:Queue drained, size 0',
+             'INFO:root:Draining queue of size 0',
+             'INFO:root:Queue drained, processed 0',
              'INFO:root:Gathering task statuses',
              'WARNING:root:Unknown status: Bad return'])
         nose.tools.ok_(status == 1)
@@ -483,8 +512,8 @@ class TestZMQClient(object):
             ['DEBUG:asyncio:Using selector: EpollSelector',
              'INFO:root:Started tasks, entering status check loop',
              'INFO:root:Exited status check loop',
-             'INFO:root:Draining queue',
-             'INFO:root:Queue drained, size 0',
+             'INFO:root:Draining queue of size 0',
+             'INFO:root:Queue drained, processed 0',
              'INFO:root:Gathering task statuses',
              'WARNING:root:Exception: Exception message'])
         nose.tools.ok_(status == 1)

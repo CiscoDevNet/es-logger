@@ -4,11 +4,11 @@
 __author__ = 'jonpsull'
 
 import es_logger
+import importlib.metadata
 import io
 from jenkins import JenkinsException, NotFoundException
 import nose
 from parameterized import parameterized
-import pkg_resources
 import requests
 from stevedore import ExtensionManager
 import unittest.mock
@@ -26,14 +26,11 @@ class TestEsLogger(object):
                        'gather_build_data1 gather_build_data2 gather_build_data3',
                        'GENERATE_EVENTS': 'generate_events1 generate_events2 generate_events3'})
     def setup(self):
-        dep = pkg_resources.EntryPoint.parse(
-            'dummy = test.test_plugins:DummyEventTarget')
-        d = pkg_resources.Distribution()
-        d._ep_map = {'es_logger.plugins.event_target': {'dummy': dep}}
-        pkg_resources.working_set.add(d, 'dummy')
-        ExtensionManager.ENTRY_POINT_CACHE = {}
-
+        dummy_ep = importlib.metadata.EntryPoint(
+            'dummy', 'test.test_plugins:DummyEventTarget', 'es_logger.plugins.event_target')
+        ExtensionManager.ENTRY_POINT_CACHE = {'es_logger.plugins.event_target': [dummy_ep]}
         self.esl = es_logger.EsLogger(1000, ['dummy'])
+
         self.urls = {
             'get_build_artifact': 'jenkins_url/job/job_name/1/artifact/1',
             'get_build_stages': 'jenkins_url/job/job_name/1/wfapi/describe/'}
@@ -153,22 +150,31 @@ class TestEsLogger(object):
                            "{} returned {} not {}".format(getter.__name__, getter(), expected))
 
     def test_list_plugins(self):
-        dep = pkg_resources.EntryPoint.parse(
-            'dummy = test.test_plugins:DummyConsoleLogProcessor')
-        d = pkg_resources.Distribution()
-        d._ep_map = {'es_logger.plugins.console_log_processor': {'dummy': dep}}
-        pkg_resources.working_set.add(d, 'dummy')
-        ExtensionManager.ENTRY_POINT_CACHE = {}
-        self.esl.list_plugins()
+        expected = '''es_logger.plugins.gather_build_data:
+\tNone found
+es_logger.plugins.console_log_processor:
+\tNone found
+es_logger.plugins.event_generator:
+\tansible_recap_v2
+\tcommit
+\tjunit
+\tstages
+es_logger.plugins.event_target:
+\tdummy
+'''
+        with unittest.mock.patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+            es_logger.EsLogger.list_plugins()
+        nose.tools.ok_(mock_stdout.getvalue() == expected,
+                       "Output was:\n{}".format(mock_stdout.getvalue()))
 
     def test_list_plugins_data_only(self):
-        dep = pkg_resources.EntryPoint.parse(
-            'dummy = test.test_plugins:DummyConsoleLogProcessor')
-        d = pkg_resources.Distribution()
-        d._ep_map = {'es_logger.plugins.console_log_processor': {'dummy': dep}}
-        pkg_resources.working_set.add(d, 'dummy')
-        ExtensionManager.ENTRY_POINT_CACHE = {}
-        self.esl.list_plugins(True, 'console_log_processor')
+        dummy_ep = importlib.metadata.EntryPoint(
+            'dummy', 'test.test_plugins:DummyConsoleLogProcessor',
+            'es_logger.plugins.console_log_processor')
+        ExtensionManager.ENTRY_POINT_CACHE = {'es_logger.plugins.console_log_processor': [dummy_ep]}
+        plugins = es_logger.EsLogger.list_plugins(True, ['console_log_processor'])
+        expected = ['dummy']
+        nose.tools.ok_(plugins == expected, "Output was: {}, expected {}".format(plugins, expected))
 
     def test_get_build_data(self):
         # Recreate the esl to validate parameters aren't set
