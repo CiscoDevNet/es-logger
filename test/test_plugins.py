@@ -3,7 +3,7 @@
 
 __author__ = 'jonpsull'
 
-import es_logger
+import es_logger.interface
 import nose
 
 

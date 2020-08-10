@@ -90,6 +90,10 @@ jenkins.Jenkins.get_build_stages = get_build_stages
 LOGGER = logging.getLogger(__name__)
 
 
+class JenkinsCollectError(Exception):
+    pass
+
+
 class EsLogger(object):
     # Initialise the object
     def __init__(self, console_length, targets):
@@ -239,9 +243,12 @@ class EsLogger(object):
         self.es_info[self.data_name]['jenkins_url'] = self.jenkins_url
         self.es_info[self.data_name]['build_number'] = self.es_build_number
 
-        # Build Info (Parameters, Status)
-        self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
-                                                     depth=0)
+        try:
+            # Build Info (Parameters, Status)
+            self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
+                                                         depth=0)
+        except Exception as exc:
+            raise JenkinsCollectError("get_build_info") from exc
         self.es_info['build_info'] = self.build_info
 
         try:
@@ -251,6 +258,8 @@ class EsLogger(object):
                     jenkins_err))
             self.es_info['job_config_info'] = None
             self.es_info['job_config_info_status'] = "Unable to retrieve config.xml."
+        except Exception as exc:
+            raise JenkinsCollectError("get_job_config") from exc
 
         if self.job_xml_raw is not None:
             self.job_xml = ET.fromstring(self.job_xml_raw)
@@ -258,7 +267,10 @@ class EsLogger(object):
             self.es_info['job_config_info_status'] = "Retrieved config.xml."
 
         # Environment Variables
-        self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
+        try:
+            self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
+        except Exception as exc:
+            raise JenkinsCollectError("get_build_env_vars") from exc
         self.es_info['env_vars'] = self.env_vars
 
         # Process build_info
@@ -353,8 +365,11 @@ class EsLogger(object):
 
     # Process Console Log
     def process_console_log(self):
-        self.console_log_ts = self.server.get_build_console_output(self.es_job_name,
-                                                                   self.es_build_number)
+        try:
+            self.console_log_ts = self.server.get_build_console_output(self.es_job_name,
+                                                                       self.es_build_number)
+        except Exception as exc:
+            raise JenkinsCollectError("get_build_console_output") from exc
         # Because of timestamper 1.9+
         # https://issues.jenkins-ci.org/browse/JENKINS-48344
         # if the line starts with the timestamp, strip it
@@ -451,14 +466,20 @@ class EsLogger(object):
 
     def get_test_report(self):
         if self.es_info['test_report'] is None:
-            self.es_info['test_report'] = self.server.get_build_test_report(
-                self.es_job_name, self.es_build_number)
+            try:
+                self.es_info['test_report'] = self.server.get_build_test_report(
+                    self.es_job_name, self.es_build_number)
+            except Exception as exc:
+                raise JenkinsCollectError("get_build_test_report") from exc
         return self.es_info['test_report']
 
     def get_stages(self):
         if self.es_info['stages'] is None:
-            self.es_info['stages'] = self.server.get_build_stages(
-                self.es_job_name, self.es_build_number)
+            try:
+                self.es_info['stages'] = self.server.get_build_stages(
+                    self.es_job_name, self.es_build_number)
+            except Exception as exc:
+                raise JenkinsCollectError("get_build_stages") from exc
         return self.es_info['stages']
 
     # Dump the string

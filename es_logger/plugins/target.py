@@ -8,8 +8,13 @@ import logging
 import os
 import requests
 import time
+import urllib3.exceptions
 
 LOGGER = logging.getLogger(__name__)
+
+
+class LogstashPostError(Exception):
+    pass
 
 
 class LogstashTarget(EventTarget):
@@ -45,20 +50,25 @@ Logstash Target Environment Variables:
     # Post to ES
     def send_event(self, json_event):
         # We see a lot of logstash timeout errors
-        post_attempts = 0
+        post_attempts = []
         r = None
         # If we successfully post, r becomes the response
         while r is None:
             try:
                 session = self.get_session()
                 r = session.post(self.logstash_server, json=json_event)
-            except requests.exceptions.ReadTimeout:
-                post_attempts = post_attempts + 1
-                LOGGER.warn("Setting session to None on post_attempt {}".format(post_attempts))
+            except (requests.exceptions.ReadTimeout, urllib3.exceptions.ProtocolError) as exc:
+                post_attempts.append(exc)
+                LOGGER.warn("Setting session to None on post_attempt {}".format(
+                            len(post_attempts)))
                 self.ls_session = None
-                if post_attempts >= 5:
-                    raise
+                if len(post_attempts) >= 5:
+                    raise LogstashPostError(
+                        "Logstash post errors {}".format(post_attempts)) from exc
                 time.sleep(self.timeout_sleep)
+            except Exception as exc:
+                raise LogstashPostError(
+                    "Logstash post error on attempt {}".format(post_attempts)) from exc
         LOGGER.debug("Posted event, result {}".format(r.ok))
         if r.ok:
             return 0
