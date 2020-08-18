@@ -82,6 +82,29 @@ class EventGenerator(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
+class ConsoleLogEventRegex(object):
+    """
+    Base class for a collection of regexes for use in the console_log event generator plugin
+        * This allows the execution of arbitrary regexes against the console log, with each match
+          being surfaced as an event from the console_log_event plugin
+        * Use cases include:
+            * Pushing events for docker commands
+            * Pushing events to track agent in use for a job
+    """
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_regex(self, regex_list):
+        """
+        Create the events to additionally push
+
+        :param regex_list: The list to append regex's to
+        :type regex_list: list
+        :returns: list(obj)
+        """
+
+
+@six.add_metaclass(abc.ABCMeta)
 class EventTarget(object):
     """
     Base class for an event target

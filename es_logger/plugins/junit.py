@@ -8,7 +8,7 @@ LOGGER = logging.getLogger(__name__)
 
 class JUnitEvent(EventGenerator):
     """
-    Process the tng output
+    Process the junit output
     """
     def get_fields(self):
         return super(JUnitEvent, self).get_fields() + ['GERRIT_PATCHSET_REVISION',

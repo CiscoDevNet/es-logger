@@ -157,6 +157,7 @@ es_logger.plugins.console_log_processor:
 es_logger.plugins.event_generator:
 \tansible_recap_v2
 \tcommit
+\tconsole_log_events
 \tjunit
 \tstages
 es_logger.plugins.event_target:

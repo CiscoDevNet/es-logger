@@ -73,10 +73,14 @@ setup(
         'es_logger.plugins.gather_build_data': [
         ],
         'es_logger.plugins.event_generator': [
-            'commit = es_logger.plugins.commit:CommitEvent',
             'ansible_recap_v2 = es_logger.plugins.ansible:AnsibleRecapEvent',
+            'commit = es_logger.plugins.commit:CommitEvent',
+            'console_log_events = es_logger.plugins.console_log_events:ConsoleLogEvent',
             'junit = es_logger.plugins.junit:JUnitEvent',
             'stages = es_logger.plugins.stages:StageEvent',
+        ],
+        'es_logger.plugins.event_generator.console_log_events': [
+            'es_logger = es_logger.plugins.console_log_events:EsLoggerConsoleLogRegex',
         ],
         'es_logger.plugins.event_target': [
             'logstash = es_logger.plugins.target:LogstashTarget',
