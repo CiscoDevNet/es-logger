@@ -2,32 +2,16 @@ __author__ = 'jonpsull'
 
 import es_logger
 import es_logger.plugins.console_log_events
+from .event_generator_base import TestEventGenerator
 import nose.tools
 import unittest.mock
 
 
-class TestConsoleLog(object):
+class TestConsoleLog(TestEventGenerator):
     def setup(self):
         self.esl = unittest.mock.MagicMock(
             spec=es_logger.EsLogger, console_log='Log', build_info={}, es_info={},
             data_name='eslogger')
-
-    def expected_fields_check(self, fields, additional):
-        expected_fields = es_logger.interface.EventGenerator.DEFAULT_FIELDS + additional
-        nose.tools.ok_(fields == expected_fields,
-                       "Unexpected value for fields: {}\nExpected: {}".format(fields,
-                                                                              expected_fields))
-
-    def return_length_check(self, ret, expected):
-        nose.tools.ok_(len(ret) == expected,
-                       "Incorrect number of events returned, got {} expected {}: {}".format(
-                       len(ret), expected, ret))
-
-    def check_named_match(self, event, named_match, expected):
-        nose.tools.ok_(named_match in event['named_matches'])
-        nose.tools.ok_(event['named_matches'][named_match] == expected,
-                       "Incorrect named_match {}: got '{}' expected '{}'".format(
-                           named_match, event['named_matches'][named_match], expected))
 
     def test_read_regex_file(self):
         with unittest.mock.patch('os.path.isfile') as mock_isfile, \
@@ -117,8 +101,18 @@ remote file operation failed: remote failed text
 next line
 '''
 
+        self.esl.console_log += '''
+[DEPRECATION WARNING]: Multi
+line
+deprecation
+[WARNING]: One line warning
+[WARNING]: Multi
+line
+warning
+
+'''
         ret = p.generate_events(self.esl)
-        self.return_length_check(ret, 20)
+        self.return_length_check(ret, 23)
 
         jenkins_agent = [x for x in ret if x['name'] == 'jenkins agent']
         self.return_length_check(jenkins_agent, 1)
@@ -185,3 +179,13 @@ next line
         jenkins_remote_failed = [x for x in ret if x['name'] == 'remote file operation failed']
         self.return_length_check(jenkins_remote_failed, 1)
         self.check_named_match(jenkins_remote_failed[0], 'remote_fail_text', 'remote failed text')
+
+        ansible_warning = [x for x in ret if x['name'] == 'ansible warning']
+        self.return_length_check(ansible_warning, 2)
+        self.check_named_match(ansible_warning[0], 'warning_text', 'One line warning\n')
+        self.check_named_match(ansible_warning[1], 'warning_text', 'Multi\nline\nwarning\n')
+
+        ansible_deprecation = [x for x in ret if x['name'] == 'ansible deprecation']
+        self.return_length_check(ansible_deprecation, 1)
+        self.check_named_match(ansible_deprecation[0], 'deprecation_text',
+                               'Multi\nline\ndeprecation\n')

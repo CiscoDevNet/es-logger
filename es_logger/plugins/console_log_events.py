@@ -84,7 +84,7 @@ class EsLoggerConsoleLogRegex(ConsoleLogEventRegex):
         """
         Pipeline job information
         """
-        # Collect slave information for this job
+        # Collect agent information for this job
         regex_list.append(("jenkins agent", re.compile(
             r"Running on (?P<jenkins_agent>.*?) in (?P<workspace>/.*?)\s*\n+",
             re.MULTILINE)))
@@ -149,7 +149,7 @@ class EsLoggerConsoleLogRegex(ConsoleLogEventRegex):
             r"received unexpected HTTP status:(?P<http_status>.*?)\n+",
             re.MULTILINE)))
 
-        # Client/slave isue
+        # Client/agent issue
         regex_list.append(("thin pool full", re.compile(
             r"devmapper: Thin Pool has [0-9]+ free data blocks which is less than minimum " +
             r"required [0-9]+ free data blocks. Create more free space in thin pool or use " +

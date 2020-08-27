@@ -4,8 +4,10 @@
 __author__ = 'jonpsull'
 
 import itertools
+import json
 import logging
-from ..interface import EventGenerator
+import urllib
+from ..interface import ConsoleLogEventRegex, EventGenerator
 import re
 
 LOGGER = logging.getLogger(__name__)
@@ -103,3 +105,59 @@ class AnsibleRecapEvent(EventGenerator):
         LOGGER.debug("Finished: {}".format(type(self).__name__))
         # Return the data
         return output_list
+
+
+class AnsibleFatalGenerator(EventGenerator):
+    """
+    Process the ansible play output for any lines beginning "fatal"
+    """
+
+    def get_fields(self):
+        return super(AnsibleFatalGenerator, self).get_fields()
+
+    def generate_events(self, esl):
+        """
+        Parse the console log and return a list for ES
+
+        :param esl: The es_logger object being collected
+        :returns: list(obj)
+        """
+        LOGGER.debug("Starting: {}".format(type(self).__name__))
+        output_list = []
+        # Log ansible fatal errors: e.g. fatal: [<host>]: FAILED! => <json_status>
+        fatal_regex = re.compile(
+                r'^fatal:\s*\[(?P<hostname>\S+)\]:\s*' +    # Group 1 matches the hostname
+                r'(?P<type>FAILED|UNREACHABLE)!\s*=>\s*' +  # precursor to json status element
+                r'(?P<error>{.*?})\s*$',                    # json status to parse in to end of line
+                re.MULTILINE | re.DOTALL)
+        for fatal_match in fatal_regex.finditer(esl.console_log):
+            add_event = {}
+            add_event['hostname'] = fatal_match.group('hostname')
+            add_event['type'] = fatal_match.group('type')
+            try:
+                add_event['data'] = json.loads(urllib.parse.quote(fatal_match.group('error'),
+                                                                  '":{} ,'))
+            except json.decoder.JSONDecodeError:
+                add_event['bad_data'] = fatal_match.group('error')
+            output_list.append(add_event)
+        LOGGER.debug("Finished: {}".format(type(self).__name__))
+        # Return the data
+        return output_list
+
+
+class AnsibleConsoleLogRegex(ConsoleLogEventRegex):
+    """
+    """
+    def get_regex(regex_list):
+        """
+        Ansible warnings and deprecations
+        """
+        regex_list.append(("ansible warning", re.compile(
+            r"^\[WARNING\]:\s*(?P<warning_text>(?:.*?\n)+?)(?=^\[.*|\s*\n)",
+            re.MULTILINE)))
+
+        regex_list.append(("ansible deprecation", re.compile(
+            r"^\[DEPRECATION WARNING\]:\s*(?P<deprecation_text>(?:.*?\n)+?)(?=^\[.*|\s*\n)",
+            re.MULTILINE)))
+
+        return regex_list

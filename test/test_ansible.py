@@ -4,6 +4,7 @@
 __author__ = 'jonpsull'
 
 import es_logger
+from .event_generator_base import TestEventGenerator
 import nose
 import unittest.mock
 
@@ -147,3 +148,55 @@ Finished: SUCCESS
         for idx, event in enumerate(events):
             nose.tools.ok_(event == results[idx],
                            "Bad event[{}] returned: {}".format(idx, events))
+
+
+class TestAnsibleFatalGenerator(TestEventGenerator):
+    def test_AnsibleFatalGenerator(self):
+        p = es_logger.plugins.ansible.AnsibleFatalGenerator()
+        self.expected_fields_check(p.get_fields(), [])
+        self.esl.console_log = '''
+TASK [ansible-task : Task Description] *****************************************
+Thursday 01 March 2018  13:24:49 +0000 (0:00:05.686)       0:00:05.901 ********
+fatal: [ansible_hostname]: FAILED! => {"failed": true, "msg": "Error message\n"}
+        to retry, use: --limit @/ansible_root/ansible/playbook.retry
+
+TASK [ansible-task : Task Description] *****************************************
+Thursday 01 March 2018  13:24:49 +0000 (0:00:05.686)       0:00:05.901 ********
+fatal: [ansible_hostname]: UNREACHABLE! => {"changed": false, "msg": "Error", "unreachable": true}
+        to retry, use: --limit @/ansible_root/ansible/playbook.retry
+
+PLAY RECAP *********************************************************************
+'''
+        ret = p.generate_events(self.esl)
+        self.return_length_check(ret, 2)
+        nose.tools.ok_(ret[0]['hostname'] == 'ansible_hostname',
+                       "Hostname is not 'ansible_hostname' {}".format(ret))
+        nose.tools.ok_('failed' in ret[0]['data'].keys(),
+                       "Data doesn't have 'failed' key {}".format(ret))
+        nose.tools.ok_('msg' in ret[0]['data'].keys(),
+                       "Data doesn't have 'msg' key {}".format(ret))
+
+    def test_AnsibleFatalGenerator_bad_json(self):
+        p = es_logger.plugins.ansible.AnsibleFatalGenerator()
+        self.expected_fields_check(p.get_fields(), [])
+        self.esl.console_log = '''
+TASK [ansible-task : Task Description] *****************************************
+Thursday 01 March 2018  13:24:49 +0000 (0:00:05.686)       0:00:05.901 ********
+fatal: [ansible_hostname]: FAILED! => {"failed": true, "msg": "Error message\n"}}
+        to retry, use: --limit @/ansible_root/ansible/playbook.retry
+
+TASK [ansible-task : Task Description] *****************************************
+Thursday 01 March 2018  13:24:49 +0000 (0:00:05.686)       0:00:05.901 ********
+fatal: [ansible_hostname]: UNREACHABLE! => {"changed": false, "msg": "Error", "unreachable": true}}
+        to retry, use: --limit @/ansible_root/ansible/playbook.retry
+
+PLAY RECAP *********************************************************************
+'''
+        ret = p.generate_events(self.esl)
+        self.return_length_check(ret, 2)
+        nose.tools.ok_(ret[0]['hostname'] == 'ansible_hostname',
+                       "Hostname is not 'ansible_hostname' {}".format(ret))
+        nose.tools.ok_(ret[1]['hostname'] == 'ansible_hostname',
+                       "Hostname is not 'ansible_hostname' {}".format(ret))
+        nose.tools.ok_('bad_data' in ret[0].keys(),
+                       "No 'bad_data' key: {}".format(ret))
