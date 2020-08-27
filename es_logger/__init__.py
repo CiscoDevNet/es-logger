@@ -106,7 +106,7 @@ class EsLogger(object):
 
         self.es_job_name = None
         self.es_build_number = None
-        self.build_info_fields = ['description', 'number', 'url']
+        self.build_info_fields = ['description', 'number', 'result', 'url']
 
         self.es_info = {}
         self.es_info['test_report'] = None
@@ -202,8 +202,9 @@ class EsLogger(object):
 
     # List all of the plugins we know about
     @staticmethod
-    def list_plugins(data_only=False, namespaces=['gather_build_data', 'console_log_processor',
-                                                  'event_generator', 'event_target']):
+    def list_plugins(data_only=False,
+                     namespaces=['gather_build_data', 'console_log_processor', 'event_generator',
+                                 'event_generator.console_log_events', 'event_target']):
         def print_plugin(ext):
             print("\t{}".format(ext.entry_point.name))
 

@@ -155,11 +155,15 @@ class TestEsLogger(object):
 es_logger.plugins.console_log_processor:
 \tNone found
 es_logger.plugins.event_generator:
+\tansible_fatal
 \tansible_recap_v2
 \tcommit
 \tconsole_log_events
 \tjunit
 \tstages
+es_logger.plugins.event_generator.console_log_events:
+\tansible
+\tes_logger
 es_logger.plugins.event_target:
 \tdummy
 '''
@@ -591,6 +595,7 @@ es_logger.plugins.event_target:
                                                    'dummy': 'dummy'}}
         self.esl.es_info['build_info'] = {'description': 'description',
                                           'number': '1',
+                                          'result': 'SUCCESS',
                                           'url': 'url'}
         self.esl.es_info['parameters'] = {'parameter': 'parameter'}
         self.esl.es_info[self.esl.data_name]['job_name'] = 'job_name'
