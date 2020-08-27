@@ -35,6 +35,23 @@ class TestEsLogger(object):
             'get_build_artifact': 'jenkins_url/job/job_name/1/artifact/1',
             'get_build_stages': 'jenkins_url/job/job_name/1/wfapi/describe/'}
 
+    @unittest.mock.patch.dict(
+        'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
+                       'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
+                       'ES_BUILD_NUMBER': '1000', 'PROCESS_CONSOLE_LOGS': '',
+                       'GATHER_BUILD_DATA': '', 'GENERATE_EVENTS': ''})
+    def test_empty_plugin_vars(self):
+        dummy_ep = importlib.metadata.EntryPoint(
+            'dummy', 'test.test_plugins:DummyEventTarget', 'es_logger.plugins.event_target')
+        ExtensionManager.ENTRY_POINT_CACHE = {'es_logger.plugins.event_target': [dummy_ep]}
+        esl = es_logger.EsLogger(1000, ['dummy'])
+        nose.tools.ok_(esl.process_console_logs == [],
+                       "process_console_logs {}".format(esl.process_console_logs))
+        nose.tools.ok_(esl.gather_build_data == [],
+                       "gather_build_data {}".format(esl.gather_build_data))
+        nose.tools.ok_(esl.generate_events == ['commit'],
+                       "generate_events {}".format(esl.generate_events))
+
     @parameterized.expand(['get_build_artifact', 'get_build_stages'])
     def test_monkey_patch(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
