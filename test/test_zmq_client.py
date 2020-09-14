@@ -113,6 +113,16 @@ class TestZMQClient(object):
         print(f"dummyTask {name} finishing")
         return return_status
 
+    def test_zmq_client_configure_num_workers(self):
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            config['zmq']['num_workers'] = '5'
+            self.zmqd.configure()
+            nose.tools.ok_(self.zmqd.num_workers == 5,
+                           "{} did not match {} ({})".format(5, self.zmqd.num_workers,
+                                                             type(self.zmqd.num_workers)))
+
     # Test call flow with good options
     def test_zmq_client_configure_default(self):
         with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:

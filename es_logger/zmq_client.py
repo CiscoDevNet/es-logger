@@ -61,7 +61,7 @@ class ESLoggerZMQDaemon(object):
         config.read(config_file)
 
         if 'zmq' in config:
-            self.num_workers = config['zmq'].get('num_workers', 3)
+            self.num_workers = int(config['zmq'].get('num_workers', 3))
             self.zmq_publisher = config['zmq'].get('zmq_publisher')
 
         if 'jenkins' in config:
