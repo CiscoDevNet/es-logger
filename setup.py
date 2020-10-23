@@ -47,6 +47,7 @@ setup(
     keywords='jenkins development elasticsearch logstash build',
 
     install_requires=[
+        'boto3',
         'python-jenkins>=1.0.0',
         'pyzmq',
         'requests',
@@ -86,6 +87,7 @@ setup(
         ],
         'es_logger.plugins.event_target': [
             'logstash = es_logger.plugins.target:LogstashTarget',
+            'sqs = es_logger.plugins.target:SqsTarget',
         ],
     },
 

@@ -35,6 +35,11 @@ class TestEsLogger(object):
             'get_build_artifact': 'jenkins_url/job/job_name/1/artifact/1',
             'get_build_stages': 'jenkins_url/job/job_name/1/wfapi/describe/'}
 
+    def tearDown(self):
+        ExtensionManager.ENTRY_POINT_CACHE = {}
+        mgr = ExtensionManager(namespace='es_logger.plugins.event_target', invoke_on_load=False)
+        mgr.names()
+
     @unittest.mock.patch.dict(
         'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
                        'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
