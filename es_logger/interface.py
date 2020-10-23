@@ -137,5 +137,11 @@ class EventTarget(object):
         :returns: int
         """
 
+    @staticmethod
+    def get_required_vars():
+        """
+        """
+        return []
+
     def finish_send(self):
         return 0

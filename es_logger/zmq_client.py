@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import signal
+from stevedore import driver
 import sys
 import urllib
 import zmq
@@ -46,14 +47,14 @@ class ESLoggerZMQDaemon(object):
         self.listener = None
         self.tasks = []
         self.env_vars = ['JENKINS_URL', 'JENKINS_USER', 'JENKINS_PASSWORD', 'PROCESS_CONSOLE_LOGS',
-                         'GATHER_BUILD_DATA', 'GENERATE_EVENTS', 'LOGSTASH_SERVER', 'LS_USER',
-                         'LS_PASSWORD']
+                         'GATHER_BUILD_DATA', 'GENERATE_EVENTS']
         self.process_console_logs = ''
         self.gather_build_data = ''
         self.generate_events = ''
         self.async_main_sleep = 30
         self.worker_sleep = 15
         self.test_zmq = args.test_zmq
+        self.targets = {}
 
     # Read the configuration
     def configure(self, config_file='es-logger.ini'):
@@ -69,10 +70,20 @@ class ESLoggerZMQDaemon(object):
             self.jenkins_user = config['jenkins'].get('jenkins_user')
             self.jenkins_password = config['jenkins'].get('jenkins_password')
 
-        if 'logstash' in config:
-            self.logstash_server = config['logstash'].get('logstash_server')
-            self.ls_user = config['logstash'].get('ls_user')
-            self.ls_password = config['logstash'].get('ls_password')
+        if 'eslogger' in config:
+            targets = config['eslogger'].get('targets', 'logstash').split(' ')
+        else:
+            targets = ['logstash']
+
+        # Handle target configuration
+        for target in targets:
+            logging.debug("Checking for {} target configuration".format(target))
+            self.targets[target] = {}
+            if target in config.keys():
+                for var in config[target].keys():
+                    self.targets[target][var] = config[target].get(var)
+                    logging.debug("Setting target configuration {}".format(self.targets[target]))
+                    self.set_in_env(var, self.targets[target][var])
 
         # Set defaults plugins to all unless overridden
         if 'plugins' not in config:
@@ -97,16 +108,17 @@ class ESLoggerZMQDaemon(object):
         logging.info("Using generate_events plugins: {}".format(self.generate_events))
         self.get_plugin_config("generate_events", self.generate_events.split(" "), config)
 
-        self.validate_config()
-
         # Set the necessary environment variables
         for var in self.env_vars:
-            self.set_in_env(var, getattr(self, var.lower()))
+            if hasattr(self, var.lower()):
+                self.set_in_env(var, getattr(self, var.lower()))
 
         # Iterate over the plugin configuration and set it in the environment
         for plugin in self.plugins.keys():
             for var in self.plugins[plugin].keys():
                 self.set_in_env(var, self.plugins[plugin][var])
+
+        self.validate_config()
 
     # lower case var to upper case env var
     @staticmethod
@@ -129,14 +141,21 @@ class ESLoggerZMQDaemon(object):
     def validate_config(self):
         # Confirm configuration or raise an exception
         unset_attr = []
-        for attr in ['jenkins_url', 'jenkins_user', 'jenkins_password',
-                     'logstash_server', 'zmq_publisher']:
-            if (not hasattr(self, attr)) or getattr(self, attr) is None:
+        needed_attrs = ['jenkins_url', 'jenkins_user', 'jenkins_password', 'zmq_publisher']
+        target_attrs = []
+        for target in self.targets:
+            drv = driver.DriverManager(namespace='es_logger.plugins.event_target',
+                                       invoke_on_load=False,
+                                       name=target)
+            target_attrs = target_attrs + drv.driver.get_required_vars()
+        for attr in needed_attrs + target_attrs:
+            if ((not hasattr(self, attr.lower())) or getattr(self, attr.lower()) is None) and \
+                    os.environ.get(attr.upper(), None) is None:
                 unset_attr.append(attr)
         if len(unset_attr) > 0:
             e = ZMQClientMisconfiguration(
-                "Unconfigured for daemon operation, check config "
-                "for the following variables:\n{}".format(unset_attr))
+                "Unconfigured for daemon operation, check config or environment for the following "
+                + "variables (UPPERCASE for environment variables):\n{}".format(unset_attr))
             raise(e)
 
     # Strip off trailing slashes, and remove each "job" path element
@@ -169,7 +188,7 @@ class ESLoggerZMQDaemon(object):
             number = var['build'].get('number')
             logging.info("Process {} number {} on {}".format(job, number, self.jenkins_url))
             # Create and configure the ES-Logger instance
-            esl = es_logger.EsLogger(console_length=32500, targets=['logstash'])
+            esl = es_logger.EsLogger(console_length=32500, targets=self.targets)
             esl.es_job_name = job
             esl.es_build_number = int(number)
             esl.gather_all()
@@ -271,7 +290,7 @@ class ESLoggerZMQDaemon(object):
             logging.info("Stopping tasks")
             for task in self.tasks:
                 task.cancel()
-        all_tasks = asyncio.Task.all_tasks()
+        all_tasks = asyncio.all_tasks()
         logging.debug("All Tasks: {}".format(all_tasks))
         logging.info("Stopped, waiting for tasks to finish")
 

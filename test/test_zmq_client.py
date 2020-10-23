@@ -5,8 +5,10 @@ __author__ = 'jonpsull'
 
 import asyncio
 import es_logger
+import importlib.metadata
 import nose
 import os
+from stevedore import ExtensionManager
 import unittest.mock
 
 
@@ -63,6 +65,7 @@ class TestZMQClient(object):
         config.__getitem__.side_effect = self.get_config_item
         config.__setitem__.side_effect = self.set_config_item
         config.__contains__.side_effect = self.config_contains
+        config.keys.side_effect = self.config_dict.keys
         return config
 
     def set_default_config(self, config):
@@ -76,6 +79,15 @@ class TestZMQClient(object):
         config['logstash']['ls_password'] = 'ls_password'
         config['zmq'] = {}
         config['zmq']['zmq_publisher'] = 'tcp://jenkins.example.com:8888'
+
+    def set_eslogger_targets_config(self, config):
+        config['eslogger'] = {}
+        config['eslogger']['targets'] = 'dummy dummy2'
+        config['dummy'] = {}
+        config['dummy']['var1'] = 'var1'
+        config['dummy2'] = {}
+        config['dummy2']['var2'] = 'var2'
+        config['dummy2']['var3'] = 'var3'
 
     def set_plugin_config(self, config):
         config['plugins'] = {}
@@ -112,6 +124,28 @@ class TestZMQClient(object):
             raise exception
         print(f"dummyTask {name} finishing")
         return return_status
+
+    def test_zmq_client_configure_eslogger(self):
+        dummy_ep = importlib.metadata.EntryPoint(
+            'dummy', 'test.test_plugins:DummyEventTarget', 'es_logger.plugins.event_target')
+        dummy2_ep = importlib.metadata.EntryPoint(
+            'dummy2', 'test.test_plugins:DummyEventTarget', 'es_logger.plugins.event_target')
+        ExtensionManager.ENTRY_POINT_CACHE = {'es_logger.plugins.event_target':
+                                              [dummy_ep, dummy2_ep]}
+        with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
+            config = self.config_setup(mock_config_parser)
+            self.set_default_config(config)
+            self.set_eslogger_targets_config(config)
+            self.zmqd.configure()
+        # Reset stevedore
+        ExtensionManager.ENTRY_POINT_CACHE = {}
+        mgr = ExtensionManager(namespace='es_logger.plugins.event_target', invoke_on_load=False)
+        mgr.names()
+
+        # Perform validation after resetting stevedore state
+        expected_targets = {'dummy': {'var1': 'var1'}, 'dummy2': {'var2': 'var2', 'var3': 'var3'}}
+        nose.tools.ok_(self.zmqd.targets == expected_targets,
+                       "{} did not match {}".format(expected_targets, self.zmqd.targets))
 
     def test_zmq_client_configure_num_workers(self):
         with unittest.mock.patch('configparser.ConfigParser') as mock_config_parser:
