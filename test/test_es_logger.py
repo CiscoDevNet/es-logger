@@ -278,9 +278,12 @@ es_logger.plugins.event_target:
                            "dummy not in build_data keys: {}".format(
                                self.esl.es_info))
             # SCM correctly processed
-            nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
-                           "repoURL not in build_data keys: {}".format(
-                               self.esl.es_info['build_data']))
+            nose.tools.ok_(len(self.esl.es_info['build_data']['scm_data']) == 1,
+                           "Wrong number of elements in scm_data: {}".format(
+                           len(self.esl.es_info['build_data']['scm_data'])))
+            nose.tools.ok_(self.esl.es_info['build_data']['scm_data'][0]['name'] == "repoURL",
+                           "Wrong name for scm_data first element: {} not repoURL".format(
+                           self.esl.es_info['build_data']['scm_data'][0]['name']))
 
     def test_get_build_data_config_error(self):
         # Recreate the esl to validate parameters aren't set
@@ -341,9 +344,12 @@ es_logger.plugins.event_target:
                            "dummy not in build_data keys: {}".format(
                                self.esl.es_info))
             # SCM correctly processed
-            nose.tools.ok_('repoURL' in self.esl.es_info['build_data'].keys(),
-                           "repoURL not in build_data keys: {}".format(
-                               self.esl.es_info['build_data']))
+            nose.tools.ok_(len(self.esl.es_info['build_data']['scm_data']) == 1,
+                           "Wrong number of elements in scm_data: {}".format(
+                           len(self.esl.es_info['build_data']['scm_data'])))
+            nose.tools.ok_(self.esl.es_info['build_data']['scm_data'][0]['name'] == "repoURL",
+                           "Wrong name for scm_data first element: {} not repoURL".format(
+                           self.esl.es_info['build_data']['scm_data'][0]['name']))
 
     def test_get_pipeline_job_type_script(self):
         script = "org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition"
