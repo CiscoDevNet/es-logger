@@ -23,7 +23,7 @@ else:
 
 setup(
     name='es_logger',
-    version='2.' + BUILD_NUMBER,
+    version='3.' + BUILD_NUMBER,
 
     description='Framework for Creating Logstash events from Jenkins Jobs',
     long_description=long_description,

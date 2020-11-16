@@ -358,9 +358,12 @@ class EsLogger(object):
                     build_data = action['buildsByBranchName'][build_branch_key]
                     # If the build matches this number, add it to the info
                     if build_data.get('buildNumber', '') == self.es_build_number:
-                        self.es_info.setdefault('build_data', {})[scm_urls[0]] = build_data
-                        self.es_info['build_data'][scm_urls[0]]['scm_urls'] = scm_urls
-                        self.es_info['build_data'][scm_urls[0]]['branch'] = build_branch_key
+                        scm_object = build_data
+                        scm_object['name'] = scm_urls[0]
+                        scm_object['scm_urls'] = scm_urls
+                        scm_object['branch'] = build_branch_key
+                        self.es_info.setdefault('build_data', {}).setdefault('scm_data', [])
+                        self.es_info['build_data']['scm_data'].append(scm_object)
                 # Clear the field that causes ES field explosion
                 action['buildsByBranchName'] = "Removed by es-logger"
 
