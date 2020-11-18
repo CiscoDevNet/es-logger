@@ -16,8 +16,17 @@ import xml.etree.ElementTree as ET
 
 
 # Monkey patch the jenkins import
+# The build number could be a string if we are adressing a particular build of a matrix build
+jenkins.STOP_BUILD = '%(folder_url)sjob/%(short_name)s/%(number)s/stop'
+jenkins.BUILD_INFO = '%(folder_url)sjob/%(short_name)s/%(number)s/api/json?depth=%(depth)s'
+jenkins.BUILD_CONSOLE_OUTPUT = '%(folder_url)sjob/%(short_name)s/%(number)s/consoleText'
+jenkins.BUILD_ENV_VARS = '%(folder_url)sjob/%(short_name)s/%(number)s/injectedEnvVars/api/json' + \
+    '?depth=%(depth)s'
+jenkins.BUILD_TEST_REPORT = '%(folder_url)sjob/%(short_name)s/%(number)s/testReport/api/json' + \
+    '?depth=%(depth)s'
+jenkins.DELETE_BUILD = '%(folder_url)sjob/%(short_name)s/%(number)s/doDelete'
 # Get Artifact
-BUILD_ARTIFACT = '%(folder_url)sjob/%(short_name)s/%(number)d/artifact/%(artifact)s'
+BUILD_ARTIFACT = '%(folder_url)sjob/%(short_name)s/%(number)s/artifact/%(artifact)s'
 
 
 def get_build_artifact(self, name, number, artifact):
@@ -53,7 +62,7 @@ jenkins.Jenkins.get_build_artifact = get_build_artifact
 
 
 # Get Stages
-BUILD_STAGES = '%(folder_url)sjob/%(short_name)s/%(number)d/wfapi/describe/'
+BUILD_STAGES = '%(folder_url)sjob/%(short_name)s/%(number)s/wfapi/describe/'
 
 
 def get_build_stages(self, name, number):
@@ -166,7 +175,7 @@ class EsLogger(object):
 
     def get_es_build_number(self):
         if not self.es_build_number:
-            return int(os.environ.get('ES_BUILD_NUMBER', 0))
+            return os.environ.get('ES_BUILD_NUMBER', '0')
         return self.es_build_number
 
     def get_process_console_logs(self):
