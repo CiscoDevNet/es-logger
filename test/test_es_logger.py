@@ -143,14 +143,25 @@ class TestEsLogger(object):
                            "{} returned {} not {}".format(getter.__name__, getter(), param))
 
     def test_get_es_build_number(self):
-        # Recreate the esl to validate parameters aren't set
+        # Recreate the esl to validate parameters aren't set and default is 0
         self.esl = es_logger.EsLogger(1000, ['dummy'])
-        nose.tools.ok_(self.esl.es_build_number == 0,
-                       "self.esl.es_build_number not 0: {}".format(self.esl.es_build_number))
+        nose.tools.ok_(self.esl.es_build_number == '0',
+                       "self.esl.es_build_number not 0: {} ({})".format(
+                        self.esl.es_build_number, type(self.esl.es_build_number)))
+        es_build_number = '999'
+        # Validate correct value from env
+        with unittest.mock.patch.dict('os.environ', {'ES_BUILD_NUMBER': es_build_number}):
+            self.esl = es_logger.EsLogger(1000, ['dummy'])
+            nose.tools.ok_(self.esl.get_es_build_number() == es_build_number,
+                           "{} not returning {}, types: {} {}".format(
+                           self.esl.es_build_number, es_build_number,
+                           type(self.esl.es_build_number), type(es_build_number)))
+        # Validate env change doesn't change our object
         with unittest.mock.patch.dict('os.environ', {'ES_BUILD_NUMBER': '1000'}):
-            self.esl.es_build_number = self.esl.get_es_build_number()
-            nose.tools.ok_(self.esl.get_es_build_number() == 1000,
-                           "{} not returning {}".format(self.esl.get_es_build_number, 1000))
+            nose.tools.ok_(self.esl.get_es_build_number() == es_build_number,
+                           "{} not returning {}, types: {} {}".format(
+                           self.esl.es_build_number, es_build_number,
+                           type(self.esl.es_build_number), type(es_build_number)))
 
     @parameterized.expand(['process_console_logs', 'gather_build_data', 'generate_events'])
     def test_get_plugin(self, param):

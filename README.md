@@ -77,6 +77,13 @@ configuration
 * LS_USER - User to connect to Logstash with
 * LS_PASSWORD - Password to connect to Logstash with
 
+### AWS SQS Target
+
+* Credentials - Uses boto3, so ensure you have credentials set appropriately
+  See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+
+* SQS_QUEUE - Name of the queue to send the data into
+
 ## Event Generators
 
 An event generator is intended to process the Jenkins information and generate a number of
@@ -92,14 +99,14 @@ The return from the generator should be a list of events that will be posted to 
 
 Here is a sample execution of es-logger against a public Jenkins repo.
 
-It uses the public Jenkins that Netflix builds code upon at
-[netflixoss.ci.cloudbees.com](https://netflixoss.ci.cloudbees.com/job/Lipstick-pull-requests)
+It uses the public Jenkins that Mono Project builds code upon at
+[jenkins.mono-project.com](https://jenkins.mono-project.com/job/test-mono-mainline-linux/label=debian-9-amd64/)
 
 ```
-export JENKINS_URL=https://netflixoss.ci.cloudbees.com/
-export ES_JOB_NAME=Lipstick-pull-requests
+export JENKINS_URL=https://jenkins.mono-project.com/
+export ES_JOB_NAME=test-mono-mainline-linux
 export GENERATE_EVENTS="junit commit"
-ES_BUILD_NUMBER=117 es-logger --no-post -c 100
+ES_BUILD_NUMBER=5308/label=debian-9-amd64 es-logger --no-post -c 100
 ```
 
 Each execution can get a single jobs data.  To iterate over many, a simple bash loop can
