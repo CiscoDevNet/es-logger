@@ -276,7 +276,7 @@ es_logger.plugins.event_target:
                                "{} not {}: {}".format(k, v, self.esl.es_info))
 
             # Parameters pulled out
-            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
+            nose.tools.ok_(self.esl.es_info['parameters']['es_job_name'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
 
             # Prevent ES field explosion through rewrite of builds by branch name
@@ -309,8 +309,8 @@ es_logger.plugins.event_target:
                 unittest.mock.patch('jenkins.Jenkins.get_build_env_vars') as mock_env_vars, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_console_output') as mock_console, \
                 unittest.mock.patch('jenkins.Jenkins.get_job_config') as mock_config:
-            mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '1',
-                                                     'JOB_NAME': 'job_name',
+            mock_env_vars.return_value = {'envMap': {'BUILD_NUMBER': '2',
+                                                     'JOB_NAME': 'es_job_name',
                                                      'BUILD_URL': 'url',
                                                      'dummy': 'dummy'}}
             mock_build_info.return_value = {
@@ -342,7 +342,7 @@ es_logger.plugins.event_target:
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
                            "console_log not 'log': {}".format(self.esl.es_info))
             # Parameters pulled out
-            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
+            nose.tools.ok_(self.esl.es_info['parameters']['es_job_name'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
 
             # Prevent ES field explosion through rewrite of builds by branch name
@@ -628,16 +628,16 @@ es_logger.plugins.event_target:
 
     def test_get_events(self):
         self.esl.generate_events = ['dummy']
-        self.esl.es_info['env_vars'] = {'envMap': {'BUILD_NUMBER': '1',
-                                                   'JOB_NAME': 'job_name',
+        self.esl.es_info['env_vars'] = {'envMap': {'BUILD_NUMBER': '2',
+                                                   'JOB_NAME': 'es_job_name',
                                                    'BUILD_URL': 'url',
                                                    'dummy': 'dummy'}}
         self.esl.es_info['build_info'] = {'description': 'description',
                                           'number': '1',
                                           'result': 'SUCCESS',
                                           'url': 'url'}
-        self.esl.es_info['parameters'] = {'parameter': 'parameter'}
-        self.esl.es_info[self.esl.data_name]['job_name'] = 'job_name'
+        self.esl.es_info['parameters'] = {'es_job_name': {'parameter': 'parameter'}}
+        self.esl.es_info[self.esl.data_name]['job_name'] = 'es_job_name'
         self.esl.es_info[self.esl.data_name]['jenkins_url'] = 'url'
         with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr:
             mock_driver_mgr().driver.get_fields.return_value = 'dummy'
