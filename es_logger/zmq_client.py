@@ -188,7 +188,9 @@ class ESLoggerZMQDaemon(object):
             number = var['build'].get('number')
             logging.info("Process {} number {} on {}".format(job, number, self.jenkins_url))
             # Create and configure the ES-Logger instance
-            esl = es_logger.EsLogger(console_length=32500, targets=self.targets)
+            # Ensure we only pass the keys for targets, and not the (potentially sensitive)
+            # configuration details
+            esl = es_logger.EsLogger(console_length=32500, targets=self.targets.keys())
             esl.es_job_name = job
             esl.es_build_number = int(number)
             esl.gather_all()
