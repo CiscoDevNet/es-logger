@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 
 
 # Monkey patch the jenkins import
-# The build number could be a string if we are adressing a particular build of a matrix build
+# The build number could be a string if we are addressing a particular build of a matrix build
 jenkins.STOP_BUILD = '%(folder_url)sjob/%(short_name)s/%(number)s/stop'
 jenkins.BUILD_INFO = '%(folder_url)sjob/%(short_name)s/%(number)s/api/json?depth=%(depth)s'
 jenkins.BUILD_CONSOLE_OUTPUT = '%(folder_url)sjob/%(short_name)s/%(number)s/consoleText'
@@ -44,14 +44,11 @@ def get_build_artifact(self, name, number, artifact):
                 'GET', self._build_url(BUILD_ARTIFACT, locals())))
 
         if response:
-            return json.loads(response)
+            return response
         else:
             raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
     except requests.exceptions.HTTPError:
         raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
-    except ValueError:
-        raise jenkins.JenkinsException(
-                'Could not parse JSON info for job[%s] number[%d]' % (name, number))
     except jenkins.NotFoundException as e:
         # This can happen if the artifact is not found
         print("Not retrieving artifact: %s" % e)
@@ -203,7 +200,8 @@ class EsLogger(object):
                 self.generate_events = []
             else:
                 self.generate_events = generate_events.split(' ')
-            self.generate_events.append('commit')
+            if os.environ.get('ES_NO_COMMIT_EVENTS', None) is None:
+                self.generate_events.append('commit')
         return self.generate_events
     ################
     # End of getters
@@ -251,7 +249,13 @@ class EsLogger(object):
         # Add the base info we have
         self.es_info[self.data_name]['job_name'] = self.es_job_name
         self.es_info[self.data_name]['jenkins_url'] = self.jenkins_url
-        self.es_info[self.data_name]['build_number'] = self.es_build_number
+        # Now the build_number can be a string for matrix jobs, split it up
+        build_number_parts = self.es_build_number.split('/')
+        self.es_info[self.data_name]['build_number'] = int(build_number_parts[0])
+        if len(build_number_parts) > 1:
+            # Join the array back up to faithfully recreate the string
+            self.es_info[self.data_name]['build_label'] = '/'.join(build_number_parts[1:])
+        self.es_info[self.data_name]['es_build_number'] = self.es_build_number
 
         try:
             # Build Info (Parameters, Status)
@@ -359,6 +363,8 @@ class EsLogger(object):
                         # conflicting types through auto typing in elasticsearch
                         self.es_info.setdefault('parameters', {}).setdefault(
                             self.es_job_name, {})[param['name']] = param['value']
+                        # Try to ensure the value is always seen as a string
+                        param['value'] = "{}".format(param['value'])
                     except KeyError:
                         LOGGER.debug("KeyError on {}".format(param))
                         continue
@@ -368,7 +374,10 @@ class EsLogger(object):
                 for build_branch_key in action['buildsByBranchName']:
                     build_data = action['buildsByBranchName'][build_branch_key]
                     # If the build matches this number, add it to the info
-                    if build_data.get('buildNumber', '') == self.es_build_number:
+                    # Also check using the simple number split from the label (as a string)
+                    if (build_data.get('buildNumber', '') == self.es_build_number or
+                            build_data.get('buildNumber', '') ==
+                            '{}'.format(self.es_info[self.data_name]['build_number'])):
                         scm_object = build_data
                         scm_object['name'] = scm_urls[0]
                         scm_object['scm_urls'] = scm_urls
