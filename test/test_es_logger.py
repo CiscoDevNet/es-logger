@@ -101,7 +101,7 @@ class TestEsLogger(object):
                 nose.tools.assert_raises(JenkinsException,
                                          func, 'job_name', 1)
 
-    @parameterized.expand(['get_build_env_vars', 'get_build_test_report', 'get_build_artifact',
+    @parameterized.expand(['get_build_env_vars', 'get_build_test_report',
                            'get_build_stages'])
     def test_monkey_patch_value(self, param):
         with unittest.mock.patch('es_logger.jenkins.Jenkins.jenkins_open') as mock_open:
@@ -221,7 +221,7 @@ es_logger.plugins.event_target:
                                'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
                                'ES_BUILD_NUMBER': '2', 'GATHER_BUILD_DATA': 'dummy'}):
             self.esl = es_logger.EsLogger(1000, ['dummy'])
-        self.esl.es_build_number = '2'
+        self.esl.es_build_number = '2/label=matrix'
         with unittest.mock.patch('stevedore.driver.DriverManager') as mock_driver_mgr, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_info') as mock_build_info, \
                 unittest.mock.patch('jenkins.Jenkins.get_build_env_vars') as mock_env_vars, \
@@ -270,7 +270,9 @@ es_logger.plugins.event_target:
             # ID info pulled into eslogger namespace
             eslogger_vars = {'job_name': 'es_job_name',
                              'jenkins_url': 'jenkins_url',
-                             'build_number': '2'}
+                             'build_number': 2,
+                             'build_label': 'label=matrix',
+                             'es_build_number': '2/label=matrix'}
             for k, v in eslogger_vars.items():
                 nose.tools.ok_(self.esl.es_info['eslogger'][k] == v,
                                "{} not {}: {}".format(k, v, self.esl.es_info))
