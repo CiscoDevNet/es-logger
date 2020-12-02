@@ -46,9 +46,9 @@ def get_build_artifact(self, name, number, artifact):
         if response:
             return response
         else:
-            raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+            raise jenkins.JenkinsException('job[%s] number[%s] does not exist' % (name, number))
     except requests.exceptions.HTTPError:
-        raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+        raise jenkins.JenkinsException('job[%s] number[%s] does not exist' % (name, number))
     except jenkins.NotFoundException as e:
         # This can happen if the artifact is not found
         print("Not retrieving artifact: %s" % e)
@@ -78,12 +78,12 @@ def get_build_stages(self, name, number):
         if response:
             return json.loads(response)
         else:
-            raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+            raise jenkins.JenkinsException('job[%s] number[%s] does not exist' % (name, number))
     except requests.exceptions.HTTPError:
-        raise jenkins.JenkinsException('job[%s] number[%d] does not exist' % (name, number))
+        raise jenkins.JenkinsException('job[%s] number[%s] does not exist' % (name, number))
     except ValueError:
         raise jenkins.JenkinsException(
-                'Could not parse JSON info for job[%s] number[%d]' % (name, number))
+                'Could not parse JSON info for job[%s] number[%s]' % (name, number))
     except jenkins.NotFoundException as e:
         # This can happen if this isn't a stages/pipeline job
         print("Not retrieving stages: %s" % e)
