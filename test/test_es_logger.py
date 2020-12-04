@@ -292,7 +292,7 @@ es_logger.plugins.event_target:
                                "{} not {}: {}".format(k, v, self.esl.es_info))
 
             # Parameters pulled out
-            nose.tools.ok_(self.esl.es_info['parameters']['es_job_name'].get('param') == 'value',
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == 'value',
                            "Parameter 'param' not 'value': {}".format(self.esl.es_info))
 
             # Prevent ES field explosion through rewrite of builds by branch name
@@ -334,7 +334,7 @@ es_logger.plugins.event_target:
                 'number': '1',
                 'url': 'url',
                 'actions': [{'_class': 'hudson.model.ParametersAction',
-                             'parameters': [{'name': 'param', 'value': 'value'}]},
+                             'parameters': [{'name': 'param', 'value': 1}]},
                             {'_class': 'hudson.plugins.git.util.BuildData',
                              'buildsByBranchName': {'b1': {'buildNumber': '1'},
                                                     'b2': {'buildNumber': '2'}},
@@ -358,8 +358,9 @@ es_logger.plugins.event_target:
             nose.tools.ok_(self.esl.es_info['console_log'] == 'log',
                            "console_log not 'log': {}".format(self.esl.es_info))
             # Parameters pulled out
-            nose.tools.ok_(self.esl.es_info['parameters']['es_job_name'].get('param') == 'value',
-                           "Parameter 'param' not 'value': {}".format(self.esl.es_info))
+            nose.tools.ok_(self.esl.es_info['parameters'].get('param') == '1',
+                           "Parameter 'param' not '1': {} {}".format(
+                           self.esl.es_info, type(self.esl.es_info['parameters'].get('param'))))
 
             # Prevent ES field explosion through rewrite of builds by branch name
             nose.tools.ok_(

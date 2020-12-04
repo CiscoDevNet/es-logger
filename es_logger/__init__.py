@@ -366,10 +366,9 @@ class EsLogger(object):
                     try:
                         # Prevent different jobs with the same parameter names creating
                         # conflicting types through auto typing in elasticsearch
-                        self.es_info.setdefault('parameters', {}).setdefault(
-                            self.es_job_name, {})[param['name']] = param['value']
-                        # Try to ensure the value is always seen as a string
+                        # by ensuring the value is always seen as a string
                         param['value'] = "{}".format(param['value'])
+                        self.es_info.setdefault('parameters', {})[param['name']] = param['value']
                     except KeyError:
                         LOGGER.debug("KeyError on {}".format(param))
                         continue
