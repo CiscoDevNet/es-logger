@@ -275,6 +275,10 @@ class TestZMQClient(object):
         esl_calls = [unittest.mock.call().gather_all(),
                      unittest.mock.call().post_all()]
         nose.tools.assert_equals(mock_esl.method_calls, esl_calls)
+        nose.tools.ok_(type(mock_esl_instance.es_build_number) is not int,
+                       "es_build_number should not be an int: {}".format(
+                       type(mock_esl_instance.es_build_number)))
+        nose.tools.assert_equals(mock_esl_instance.es_build_number, '123')
 
     @unittest.mock.patch('es_logger.EsLogger', autospec=True)
     def test_es_logger_task_not_finished(self, mock_esl):

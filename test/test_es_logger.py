@@ -142,12 +142,14 @@ class TestEsLogger(object):
             nose.tools.ok_(getter() == param,
                            "{} returned {} not {}".format(getter.__name__, getter(), param))
 
-    def test_get_es_build_number(self):
+    def test_get_es_build_number_default(self):
         # Recreate the esl to validate parameters aren't set and default is 0
         self.esl = es_logger.EsLogger(1000, ['dummy'])
         nose.tools.ok_(self.esl.es_build_number == '0',
                        "self.esl.es_build_number not 0: {} ({})".format(
                         self.esl.es_build_number, type(self.esl.es_build_number)))
+
+    def test_get_es_build_number(self):
         es_build_number = '999'
         # Validate correct value from env
         with unittest.mock.patch.dict('os.environ', {'ES_BUILD_NUMBER': es_build_number}):
@@ -162,6 +164,18 @@ class TestEsLogger(object):
                            "{} not returning {}, types: {} {}".format(
                            self.esl.es_build_number, es_build_number,
                            type(self.esl.es_build_number), type(es_build_number)))
+
+    def test_get_es_build_number_int(self):
+        es_build_number = '999'
+        # Validate that we convert an int to a string
+        self.esl.es_build_number = 999
+        with nose.tools.assert_logs(level='WARN') as cm:
+            nose.tools.ok_(self.esl.get_es_build_number() == es_build_number,
+                           "{} not returning {}, types: {} {}".format(
+                           self.esl.es_build_number, es_build_number,
+                           type(self.esl.es_build_number), type(es_build_number)))
+        nose.tools.assert_equal(cm.output,
+                                ['WARNING:es_logger:converting int es_build_number to string'])
 
     @parameterized.expand(['process_console_logs', 'gather_build_data', 'generate_events'])
     def test_get_plugin(self, param):
