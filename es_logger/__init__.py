@@ -173,6 +173,9 @@ class EsLogger(object):
     def get_es_build_number(self):
         if not self.es_build_number:
             return os.environ.get('ES_BUILD_NUMBER', '0')
+        if type(self.es_build_number) is int:
+            LOGGER.warn("converting int es_build_number to string")
+            self.es_build_number = '{}'.format(self.es_build_number)
         return self.es_build_number
 
     def get_process_console_logs(self):
@@ -250,16 +253,17 @@ class EsLogger(object):
         self.es_info[self.data_name]['job_name'] = self.es_job_name
         self.es_info[self.data_name]['jenkins_url'] = self.jenkins_url
         # Now the build_number can be a string for matrix jobs, split it up
-        build_number_parts = self.es_build_number.split('/')
+        build_number_parts = self.get_es_build_number().split('/')
         self.es_info[self.data_name]['build_number'] = int(build_number_parts[0])
         if len(build_number_parts) > 1:
             # Join the array back up to faithfully recreate the string
             self.es_info[self.data_name]['build_label'] = '/'.join(build_number_parts[1:])
-        self.es_info[self.data_name]['es_build_number'] = self.es_build_number
+        self.es_info[self.data_name]['es_build_number'] = self.get_es_build_number()
 
         try:
             # Build Info (Parameters, Status)
-            self.build_info = self.server.get_build_info(self.es_job_name, self.es_build_number,
+            self.build_info = self.server.get_build_info(self.es_job_name,
+                                                         self.get_es_build_number(),
                                                          depth=0)
         except Exception as exc:
             raise JenkinsCollectError("get_build_info") from exc
@@ -282,7 +286,8 @@ class EsLogger(object):
 
         # Environment Variables
         try:
-            self.env_vars = self.server.get_build_env_vars(self.es_job_name, self.es_build_number)
+            self.env_vars = self.server.get_build_env_vars(self.es_job_name,
+                                                           self.get_es_build_number())
         except Exception as exc:
             raise JenkinsCollectError("get_build_env_vars") from exc
         self.es_info['env_vars'] = self.env_vars
@@ -375,7 +380,7 @@ class EsLogger(object):
                     build_data = action['buildsByBranchName'][build_branch_key]
                     # If the build matches this number, add it to the info
                     # Also check using the simple number split from the label (as a string)
-                    if (build_data.get('buildNumber', '') == self.es_build_number or
+                    if (build_data.get('buildNumber', '') == self.get_es_build_number() or
                             build_data.get('buildNumber', '') ==
                             '{}'.format(self.es_info[self.data_name]['build_number'])):
                         scm_object = build_data
@@ -391,7 +396,7 @@ class EsLogger(object):
     def process_console_log(self):
         try:
             self.console_log_ts = self.server.get_build_console_output(self.es_job_name,
-                                                                       self.es_build_number)
+                                                                       self.get_es_build_number())
         except Exception as exc:
             raise JenkinsCollectError("get_build_console_output") from exc
         # Because of timestamper 1.9+
@@ -492,7 +497,7 @@ class EsLogger(object):
         if self.es_info['test_report'] is None:
             try:
                 self.es_info['test_report'] = self.server.get_build_test_report(
-                    self.es_job_name, self.es_build_number)
+                    self.es_job_name, self.get_es_build_number())
             except Exception as exc:
                 raise JenkinsCollectError("get_build_test_report") from exc
         return self.es_info['test_report']
@@ -501,7 +506,7 @@ class EsLogger(object):
         if self.es_info['stages'] is None:
             try:
                 self.es_info['stages'] = self.server.get_build_stages(
-                    self.es_job_name, self.es_build_number)
+                    self.es_job_name, self.get_es_build_number())
             except Exception as exc:
                 raise JenkinsCollectError("get_build_stages") from exc
         return self.es_info['stages']

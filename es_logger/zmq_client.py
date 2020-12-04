@@ -192,7 +192,7 @@ class ESLoggerZMQDaemon(object):
             # configuration details
             esl = es_logger.EsLogger(console_length=32500, targets=self.targets.keys())
             esl.es_job_name = job
-            esl.es_build_number = int(number)
+            esl.es_build_number = '{}'.format(number)
             esl.gather_all()
             status = esl.post_all()
             logging.info("{} number {} status {}".format(job, number, status))
