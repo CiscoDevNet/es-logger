@@ -21,10 +21,13 @@ class TestEsLogger(object):
         'os.environ', {'JENKINS_URL': 'jenkins_url', 'JENKINS_USER': 'jenkins_user',
                        'JENKINS_PASSWORD': 'jenkins_password', 'ES_JOB_NAME': 'es_job_name',
                        'ES_BUILD_NUMBER': '1000', 'PROCESS_CONSOLE_LOGS':
-                       'process_console_logs1 process_console_logs2 process_console_logs3',
+                       'process_console_logs1 process_console_logs2 process_console_logs3 '
+                       + 'process_console_logs2',
                        'GATHER_BUILD_DATA':
-                       'gather_build_data1 gather_build_data2 gather_build_data3',
-                       'GENERATE_EVENTS': 'generate_events1 generate_events2 generate_events3'})
+                       'gather_build_data1 gather_build_data2 gather_build_data3 '
+                       + 'gather_build_data1',
+                       'GENERATE_EVENTS': 'generate_events1 generate_events2 generate_events3 '
+                       + 'generate_events3'})
     def setup(self):
         dummy_ep = importlib.metadata.EntryPoint(
             'dummy', 'test.test_plugins:DummyEventTarget', 'es_logger.plugins.event_target')
@@ -189,12 +192,13 @@ class TestEsLogger(object):
                        "{} not []: {}".format(param, getattr(self.esl, param)))
         setattr(self.esl, param, None)
         getter = getattr(self.esl, 'get_' + param)
-        with unittest.mock.patch.dict('os.environ',
-                                      {param.upper(): "{}1 {}2 {}3".format(param, param, param)}):
+        with unittest.mock.patch.dict(
+                'os.environ', {param.upper(): "{param}1 {param}2 {param}3 {param}2".format(
+                    param=param)}):
             plugins = getter()
             expected = [param + '1', param + '2', param + '3'] + base
-            nose.tools.ok_(plugins == expected,
-                           "{} returned {} not {}".format(getter.__name__, getter(), expected))
+            nose.tools.assert_count_equal(plugins, expected, "{} returned {} not {}".format(
+                                          getter.__name__, plugins, expected))
 
     def test_list_plugins(self):
         expected = '''es_logger.plugins.gather_build_data:
