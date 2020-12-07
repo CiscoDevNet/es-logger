@@ -184,7 +184,7 @@ class EsLogger(object):
             if process_console_logs in [None, '']:
                 self.process_console_logs = []
             else:
-                self.process_console_logs = process_console_logs.split(' ')
+                self.process_console_logs = list(set(process_console_logs.split(' ')))
         return self.process_console_logs
 
     def get_gather_build_data(self):
@@ -193,7 +193,7 @@ class EsLogger(object):
             if gather_build_data in [None, '']:
                 self.gather_build_data = []
             else:
-                self.gather_build_data = gather_build_data.split(' ')
+                self.gather_build_data = list(set(gather_build_data.split(' ')))
         return self.gather_build_data
 
     def get_generate_events(self):
@@ -205,6 +205,7 @@ class EsLogger(object):
                 self.generate_events = generate_events.split(' ')
             if os.environ.get('ES_NO_COMMIT_EVENTS', None) is None:
                 self.generate_events.append('commit')
+            self.generate_events = list(set(self.generate_events))
         return self.generate_events
     ################
     # End of getters
