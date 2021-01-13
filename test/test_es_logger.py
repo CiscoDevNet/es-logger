@@ -208,6 +208,7 @@ es_logger.plugins.console_log_processor:
 es_logger.plugins.event_generator:
 \tansible_fatal
 \tansible_recap_v2
+\tartifact_events
 \tcommit
 \tconsole_log_events
 \tjunit

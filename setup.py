@@ -76,14 +76,15 @@ setup(
         'es_logger.plugins.event_generator': [
             'ansible_fatal = es_logger.plugins.ansible:AnsibleFatalGenerator',
             'ansible_recap_v2 = es_logger.plugins.ansible:AnsibleRecapEvent',
+            'artifact_events = es_logger.plugins.artifact:ArtifactEvent',
             'commit = es_logger.plugins.commit:CommitEvent',
             'console_log_events = es_logger.plugins.console_log_events:ConsoleLogEvent',
             'junit = es_logger.plugins.junit:JUnitEvent',
             'stages = es_logger.plugins.stages:StageEvent',
         ],
         'es_logger.plugins.event_generator.console_log_events': [
-            'es_logger = es_logger.plugins.console_log_events:EsLoggerConsoleLogRegex',
             'ansible = es_logger.plugins.ansible:AnsibleConsoleLogRegex',
+            'es_logger = es_logger.plugins.console_log_events:EsLoggerConsoleLogRegex',
         ],
         'es_logger.plugins.event_target': [
             'logstash = es_logger.plugins.target:LogstashTarget',
