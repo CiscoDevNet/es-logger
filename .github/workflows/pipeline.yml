@@ -1,0 +1,37 @@
+name: Pipeline
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows running the workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  ci_cd:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout code and setup python 3
+      - uses: actions/checkout@v2
+      - name: Set up Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3
+
+      # Runs the testing script
+      - name: Run Tests
+        run: ./run_tests.bash
+
+      # Build and (possibly) Release
+      - name: Build a binary wheel and a source tarball
+        run: python ./setup.py sdist
+      - name: Publish distribution 📦 to PyPI
+        if: github.ref == 'refs/heads/master'
+        uses: pypa/gh-action-pypi-publish@v1.4.1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
