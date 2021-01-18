@@ -563,7 +563,7 @@ class TestZMQClient(object):
              'INFO:root:Draining queue of size 0',
              'INFO:root:Queue drained, processed 0',
              'INFO:root:Gathering task statuses',
-             'WARNING:root:Exception: Exception message'])
+             'WARNING:root:Exception: Exception message\nNone'])
         nose.tools.ok_(status == 1)
 
     async def async_async_main_exception(self):

@@ -15,6 +15,7 @@ import os
 import signal
 from stevedore import driver
 import sys
+import traceback
 import urllib
 import zmq
 from zmq.asyncio import Context
@@ -356,7 +357,7 @@ class ESLoggerZMQDaemon(object):
         status = 0
         for s in status_list:
             if isinstance(s, Exception):
-                logging.warning("Exception: {}".format(s))
+                logging.warning("Exception: {}\n{}".format(s, traceback.print_tb(s.__traceback__)))
                 status += 1
             elif isinstance(s, int):
                 status += s
