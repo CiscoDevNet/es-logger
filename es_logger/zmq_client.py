@@ -351,6 +351,9 @@ class ESLoggerZMQDaemon(object):
         drain_status = await self.drain_queue()
 
         # Wait for all of the coroutines to finish and gather the result
+        all_tasks = asyncio.all_tasks()
+        logging.info("All Tasks: {}, Specific Tasks: {}".format(all_tasks,
+                                                                [self.listener] + self.tasks))
         logging.info("Gathering task statuses")
         status_list = await asyncio.gather(*([self.listener] + self.tasks), return_exceptions=True)
         status_list = status_list + drain_status

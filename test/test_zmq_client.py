@@ -514,6 +514,8 @@ class TestZMQClient(object):
         self.zmqd.start = unittest.mock.MagicMock()
         with nose.tools.assert_logs(level='DEBUG') as cm:
             status = asyncio.run(self.async_async_main())
+        # Pop the element that describes the tasks, as that is variable
+        cm.output.pop(5)
         nose.tools.assert_equal(
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
@@ -534,6 +536,8 @@ class TestZMQClient(object):
         self.zmqd.start = unittest.mock.MagicMock()
         with nose.tools.assert_logs(level='DEBUG') as cm:
             status = asyncio.run(self.async_async_main_unknown())
+        # Pop the element that describes the tasks, as that is variable
+        cm.output.pop(5)
         nose.tools.assert_equal(
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
@@ -555,6 +559,8 @@ class TestZMQClient(object):
         self.zmqd.start = unittest.mock.MagicMock()
         with nose.tools.assert_logs(level='DEBUG') as cm:
             status = asyncio.run(self.async_async_main_exception())
+        # Pop the element that describes the tasks, as that is variable
+        cm.output.pop(5)
         nose.tools.assert_equal(
             cm.output,
             ['DEBUG:asyncio:Using selector: EpollSelector',
