@@ -355,7 +355,21 @@ class ESLoggerZMQDaemon(object):
         logging.info("All Tasks: {}, Specific Tasks: {}".format(all_tasks,
                                                                 [self.listener] + self.tasks))
         logging.info("Gathering task statuses")
-        status_list = await asyncio.gather(*([self.listener] + self.tasks), return_exceptions=True)
+        # Seeing hangs where tasks weren't cancelling, so this is an attempt to work through that
+        # The code marked replaces:
+        #     status_list = asyncio.gather(*([self.listener] + self.tasks), return_exceptions=True)
+        (done, pending) = await asyncio.wait([self.listener] + self.tasks,
+                                             timeout=5.0, return_when=asyncio.ALL_COMPLETED)
+        status_list = []
+        for task in pending:
+            logging.warning("Task not done: {}".format(task))
+            status_list.append(task.get_stack())
+        for task in done:
+            try:
+                status_list.append(task.result())
+            except Exception as e:
+                status_list.append(e)
+        # End replacement code
         status_list = status_list + drain_status
         status = 0
         for s in status_list:
